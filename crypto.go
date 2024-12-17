@@ -27,7 +27,7 @@ type CryptoToken struct {
 	Decimals int    `json:"decimals"`
 }
 
-type TransactionInfo struct {
+type CryptoTransactionInfo struct {
 	TxHash      string      `json:"txhash"`
 	TotalAmount float64     `json:"total_amount"`
 	To          string      `json:"to"`
@@ -61,7 +61,7 @@ type EvmTokenTransferResponse struct {
 	Confirmations     string `json:"confirmations"`
 }
 
-func (c Chain) GetTXInfo(txHash string) (*TransactionInfo, error) {
+func (c Chain) GetTXInfo(txHash string) (*CryptoTransactionInfo, error) {
 	switch c.Type {
 	case EVM:
 		return c.getEvmTXInfo(txHash)
@@ -72,11 +72,11 @@ func (c Chain) GetTXInfo(txHash string) (*TransactionInfo, error) {
 	}
 }
 
-func (t TransactionInfo) ID() string {
+func (t CryptoTransactionInfo) ID() string {
 	return t.TxHash
 }
 
-func (c Chain) getEvmTXInfo(txHash string) (*TransactionInfo, error) {
+func (c Chain) getEvmTXInfo(txHash string) (*CryptoTransactionInfo, error) {
 	url := fmt.Sprintf("%s?module=account&action=tokentx&address=%s&apikey=%s", c.Explorer, c.ContractAddress, c.ApiKey)
 	resp, err := http.Get(url)
 	if err != nil {
@@ -110,7 +110,7 @@ func (c Chain) getEvmTXInfo(txHash string) (*TransactionInfo, error) {
 		return nil, fmt.Errorf("transaction %s not found", txHash)
 	}
 
-	info := &TransactionInfo{
+	info := &CryptoTransactionInfo{
 		TxHash:      txHash,
 		TotalAmount: fromStrTokenValueToNumber(evmInfo.Value, evmInfo.TokenDecimal),
 		Date:        fromStrTimestampToTime(evmInfo.TimeStamp),
@@ -131,11 +131,11 @@ func (c Chain) getEvmTXInfo(txHash string) (*TransactionInfo, error) {
 	return info, nil
 }
 
-func (Chain) getCardanoTXInfo(_ string) (*TransactionInfo, error) {
+func (Chain) getCardanoTXInfo(_ string) (*CryptoTransactionInfo, error) {
 	return nil, fmt.Errorf("cardano transactions not implemented")
 }
 
-func (chains Chains) CryptoTransactionInfo(txHash, dest string) (*TransactionInfo, error) {
+func (chains Chains) CryptoCryptoTransactionInfo(txHash, dest string) (*CryptoTransactionInfo, error) {
 
 	for _, c := range chains {
 		if strings.EqualFold(c.ContractAddress, dest) {

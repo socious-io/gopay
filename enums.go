@@ -9,6 +9,7 @@ type (
 	Currency        string
 	PaymentStatus   string
 	PaymentType     string
+	FiatService     string
 )
 
 const (
@@ -34,6 +35,8 @@ const (
 	PAID_OUT        PaymentStatus = "PAID_OUT"
 	CANCLED         PaymentStatus = "CANCELED"
 	REFUNDED        PaymentStatus = "REFUNDED"
+
+	STRIPE FiatService = "STRIPE"
 )
 
 func scanEnum(value interface{}, target interface{}) error {
@@ -65,5 +68,9 @@ func (c *Currency) Scan(value interface{}) error {
 }
 
 func (c *PaymentStatus) Scan(value interface{}) error {
+	return scanEnum(value, (*string)(c))
+}
+
+func (c *FiatService) Scan(value interface{}) error {
 	return scanEnum(value, (*string)(c))
 }
