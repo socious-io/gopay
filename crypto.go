@@ -61,10 +61,15 @@ type EvmTokenTransferResponse struct {
 	Confirmations     string `json:"confirmations"`
 }
 
-func (c Chain) GetTXInfo(txHash string) (*CryptoTransactionInfo, error) {
+type CryptoParams struct {
+	TxHash       string
+	TokenAddress string
+}
+
+func (c Chain) GetTXInfo(txHash string, token CryptoToken) (*CryptoTransactionInfo, error) {
 	switch c.Type {
 	case EVM:
-		return c.getEvmTXInfo(txHash)
+		return c.getEvmTXInfo(txHash, token)
 	case CARDANO:
 		return c.getCardanoTXInfo(txHash)
 	default:
@@ -76,7 +81,7 @@ func (t CryptoTransactionInfo) ID() string {
 	return t.TxHash
 }
 
-func (c Chain) getEvmTXInfo(txHash string) (*CryptoTransactionInfo, error) {
+func (c Chain) getEvmTXInfo(txHash string, token CryptoToken) (*CryptoTransactionInfo, error) {
 	url := fmt.Sprintf("%s?module=account&action=tokentx&address=%s&apikey=%s", c.Explorer, c.ContractAddress, c.ApiKey)
 	resp, err := http.Get(url)
 	if err != nil {
@@ -110,38 +115,31 @@ func (c Chain) getEvmTXInfo(txHash string) (*CryptoTransactionInfo, error) {
 		return nil, fmt.Errorf("transaction %s not found", txHash)
 	}
 
-	info := &CryptoTransactionInfo{
+	return &CryptoTransactionInfo{
 		TxHash:      txHash,
 		TotalAmount: fromStrTokenValueToNumber(evmInfo.Value, evmInfo.TokenDecimal),
 		Date:        fromStrTimestampToTime(evmInfo.TimeStamp),
 		From:        evmInfo.From,
 		To:          evmInfo.To,
 		Meta:        evmInfo,
-	}
-
-	for _, token := range c.Tokens {
-		if strings.EqualFold(evmInfo.ContractAddress, token.Address) {
-			info.Token = token
-			info.Valid = true
-			return info, nil
-		}
-	}
-
-	info.Message = fmt.Sprintf("token <%s | %s> not match to configured tokens", evmInfo.ContractAddress, evmInfo.TokenName)
-	return info, nil
+		Token:       token,
+		Valid:       true,
+	}, nil
 }
 
 func (Chain) getCardanoTXInfo(_ string) (*CryptoTransactionInfo, error) {
 	return nil, fmt.Errorf("cardano transactions not implemented")
 }
 
-func (chains Chains) CryptoCryptoTransactionInfo(txHash, dest string) (*CryptoTransactionInfo, error) {
+func (chains Chains) CryptoCryptoTransactionInfo(params CryptoParams) (*CryptoTransactionInfo, error) {
 
 	for _, c := range chains {
-		if strings.EqualFold(c.ContractAddress, dest) {
-			return c.GetTXInfo(txHash)
+		for _, t := range c.Tokens {
+			if strings.EqualFold(t.Address, params.TokenAddress) {
+				return c.GetTXInfo(params.TxHash, t)
+			}
 		}
 	}
 
-	return nil, fmt.Errorf("contract address %s not found", dest)
+	return nil, fmt.Errorf("token address %s not found", params.TokenAddress)
 }

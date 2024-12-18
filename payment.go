@@ -24,21 +24,45 @@ type Payment struct {
 	Type               PaymentType    `db:"type" json:"type"`
 	CreatedAt          time.Time      `db:"created_at" json:"created_at"`
 	UpdatedAt          time.Time      `db:"created_at" json:"updated_at"`
+
+	Identities   []PaymentIdentity `db:"-" json:"identities"`
+	Transactions []Transaction     `db:"-" json:"transactions"`
 }
 
 type PaymentIdentity struct {
 	ID              uuid.UUID      `db:"id" json:"id"`
 	PaymentID       uuid.UUID      `db:"payment_id" json:"payment_id"`
 	IdentityID      uuid.UUID      `db:"identity_id" json:"identity_id"`
+	Account         string         `db:"account" json:"account"`
 	RoleName        string         `db:"role_name" json:"role_name"`
 	AllocatedAmount float64        `db:"allocated_amount" json:"allocated_amount"`
 	Meta            types.JSONText `db:"meta" json:"meta,omitempty"`
 	CreatedAt       time.Time      `db:"created_at" json:"created_at"`
 }
 
-func New(tag, desc, ref, string, currency Currency, meta interface{}) (*Payment, error) {
+type PaymentParams struct {
+	Tag         string
+	Description string
+	Ref         string
+	Currency    Currency
+	Meta        interface{}
+}
+
+type IdentityParams struct {
+	ID       uuid.UUID
+	RoleName string
+	Account  string
+	Amount   float64
+	Meta     interface{}
+}
+
+/* func FetchPayment(id uuid.UUID) (*Payment, error) {
+
+} */
+
+func New(params PaymentParams) (*Payment, error) {
 	// Convert meta to JSONB
-	metaJSON, err := json.Marshal(meta)
+	metaJSON, err := json.Marshal(params.Meta)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal meta: %w", err)
 	}
@@ -53,7 +77,7 @@ func New(tag, desc, ref, string, currency Currency, meta interface{}) (*Payment,
 			RETURNING *`
 
 	// Execute query and scan the returned row into the struct
-	if err := config.DB.QueryRowx(query, tag, desc, ref, 0.0, currency, INITIATED, metaJSON).
+	if err := config.DB.QueryRowx(query, params.Tag, params.Description, params.Ref, 0.0, params.Currency, INITIATED, metaJSON).
 		StructScan(payment); err != nil {
 		return nil, fmt.Errorf("failed to create payment: %w", err)
 	}
@@ -61,10 +85,10 @@ func New(tag, desc, ref, string, currency Currency, meta interface{}) (*Payment,
 	return payment, nil
 }
 
-func (p *Payment) AddIdentity(id uuid.UUID, roleName string, amount float64, meta interface{}) (*PaymentIdentity, error) {
+func (p *Payment) AddIdentity(params IdentityParams) (*PaymentIdentity, error) {
 
 	// Convert meta to JSONB
-	metaJSON, err := json.Marshal(meta)
+	metaJSON, err := json.Marshal(params.Meta)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal meta: %w", err)
 	}
@@ -74,12 +98,12 @@ func (p *Payment) AddIdentity(id uuid.UUID, roleName string, amount float64, met
 
 	// SQL query with RETURNING *
 	query := `
-		INSERT INTO payment_identities (payment_id, identity_id, role_name, allocated_amount, meta, created_at)
-		VALUES ($1, $2, $3, $4, $5, NOW())
+		INSERT INTO payment_identities (payment_id, identity_id, role_name, allocated_amount, meta, account)
+		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING *`
 
 	// Execute query and scan the returned row into the struct
-	if err := config.DB.QueryRowx(query, p.ID, id, roleName, amount, metaJSON).
+	if err := config.DB.QueryRowx(query, p.ID, params.ID, params.RoleName, params.Amount, metaJSON, params.Amount).
 		StructScan(identity); err != nil {
 		return nil, err
 	}
@@ -118,4 +142,53 @@ func (p *Payment) SetToFiatMode(name string) error {
 	}
 
 	return nil
+}
+
+func (p *Payment) Deposit() error {
+	if p.Type != FIAT {
+		return fmt.Errorf("only fiat payments can call this")
+	}
+
+	if len(p.Identities) < 1 {
+		return fmt.Errorf("you need to assign identity first")
+	}
+	t := &Transaction{
+		PaymentID:  p.ID,
+		IdentityID: p.Identities[0].ID,
+		Tag:        "DEPOSIT",
+		Amount:     p.TotalAmount,
+		Type:       DEPOSIT,
+	}
+
+	params := FiatParams{
+		ServiceName: *p.FiatServiceName,
+		Customer:    p.Identities[0].Account,
+		Currency:    p.Currency,
+		Description: p.Description,
+		Amount:      p.TotalAmount,
+	}
+
+	if len(p.Identities) > 1 {
+		params.Transfer = &Transfer{
+			Amount:      p.Identities[1].AllocatedAmount,
+			Destination: p.Identities[1].Account,
+		}
+		t.Fee = params.Amount - params.Transfer.Amount
+	}
+
+	if err := t.Create(); err != nil {
+		return err
+	}
+
+	info, err := config.Fiats.Pay(params)
+	if err != nil {
+		t.Meta, _ = json.Marshal(map[string]interface{}{"info": info, "error": err.Error()})
+		t.Cancel()
+		return err
+	}
+	t.Meta, _ = json.Marshal(map[string]interface{}{"info": info})
+	if !info.Confirmed {
+		return t.Cancel()
+	}
+	return t.Verify()
 }

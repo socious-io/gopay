@@ -23,7 +23,7 @@ type Transfer struct {
 }
 
 type FiatTransactionInfo struct {
-	TxID        string      `json:"txid"`
+	TXID        string      `json:"tx_id"`
 	TotalAmount int64       `json:"total_amount"`
 	Currency    string      `json:"currency"`
 	Meta        interface{} `json:"meta"`
@@ -31,26 +31,35 @@ type FiatTransactionInfo struct {
 	Confirmed   bool        `json:"confirmed"`
 }
 
-func (fiats Fiats) Pay(serviceName, customer, description string, amount float64, currency Currency, transfer *Transfer) (*FiatTransactionInfo, error) {
+type FiatParams struct {
+	ServiceName string
+	Customer    string
+	Description string
+	Amount      float64
+	Currency    Currency
+	Transfer    *Transfer
+}
+
+func (fiats Fiats) Pay(params FiatParams) (*FiatTransactionInfo, error) {
 	for _, f := range fiats {
-		if serviceName != f.Name {
+		if params.ServiceName != f.Name {
 			continue
 		}
 		switch f.Service {
 		// TODO: add new fiat services here
 		default:
-			return f.StripePay(customer, description, amount, currency, transfer)
+			return f.StripePay(params)
 		}
 	}
-	return nil, fmt.Errorf("service %s could not found", serviceName)
+	return nil, fmt.Errorf("service %s could not found", params.ServiceName)
 }
 
-func (f Fiat) StripePay(customer, description string, amount float64, currency Currency, transfer *Transfer) (*FiatTransactionInfo, error) {
+func (f Fiat) StripePay(params FiatParams) (*FiatTransactionInfo, error) {
 	// Setup Key
 	stripe.Key = f.ApiKey
 
 	list := paymentmethod.List(&stripe.PaymentMethodListParams{
-		Customer: stripe.String(customer),
+		Customer: stripe.String(params.Customer),
 		Type:     stripe.String("card"),
 	})
 	var method *stripe.PaymentMethod
@@ -61,33 +70,33 @@ func (f Fiat) StripePay(customer, description string, amount float64, currency C
 		return nil, err
 	}
 	if method == nil {
-		return nil, fmt.Errorf("card method %s could not be found", customer)
+		return nil, fmt.Errorf("card method %s could not be found", params.Customer)
 	}
 
-	params := &stripe.PaymentIntentParams{
-		Amount:        stripe.Int64(stripeAmount(amount, currency)),
-		Currency:      stripe.String(string(currency)),
-		Customer:      stripe.String(customer),
+	intentParams := &stripe.PaymentIntentParams{
+		Amount:        stripe.Int64(stripeAmount(params.Amount, params.Currency)),
+		Currency:      stripe.String(string(params.Currency)),
+		Customer:      stripe.String(params.Customer),
 		PaymentMethod: stripe.String(method.ID),
-		Description:   stripe.String(description),
+		Description:   stripe.String(params.Description),
 	}
 
-	if transfer != nil {
-		params.ConfirmationMethod = stripe.String("automatic")
-		params.ApplicationFeeAmount = stripe.Int64(int64(amount - transfer.Amount))
-		params.OnBehalfOf = stripe.String(transfer.Destination)
-		params.TransferData = &stripe.PaymentIntentTransferDataParams{
-			Destination: stripe.String(transfer.Destination),
+	if params.Transfer != nil {
+		intentParams.ConfirmationMethod = stripe.String("automatic")
+		intentParams.ApplicationFeeAmount = stripe.Int64(int64(params.Amount - params.Transfer.Amount))
+		intentParams.OnBehalfOf = stripe.String(params.Transfer.Destination)
+		intentParams.TransferData = &stripe.PaymentIntentTransferDataParams{
+			Destination: stripe.String(params.Transfer.Destination),
 		}
 	}
 
-	result, err := paymentintent.New(params)
+	result, err := paymentintent.New(intentParams)
 
 	if err != nil {
 		return nil, err
 	}
 	info := &FiatTransactionInfo{
-		TxID:        result.ID,
+		TXID:        result.ID,
 		TotalAmount: result.Amount,
 		Date:        time.Now(),
 		Currency:    string(result.Currency),

@@ -22,3 +22,25 @@ type Transaction struct {
 	VerfiedAt  *time.Time      `db:"verified_at" json:"verified_at"`
 	CreatedAt  time.Time       `db:"created_at" json:"created_at"`
 }
+
+func (t *Transaction) Create() error {
+	query := `
+		INSERT INTO transactions (
+			payment_id, identity_id, tx_id, tag, amount, fee, discount, type, meta
+		) VALUES (
+			$1, $2, $3, $4, $5, $6, $7, $8, $9
+		) RETURNING *
+	`
+	return config.DB.QueryRowx(query).StructScan(t)
+
+}
+
+func (t *Transaction) Verify() error {
+	query := `UPDATE transactions SET tx_id=$2, meta=$3, verified_at=NOW() WHERE id=$1`
+	return config.DB.QueryRowx(query, t.ID, t.TXID, t.Meta).StructScan(t)
+}
+
+func (t *Transaction) Cancel() error {
+	query := `UPDATE transactions SET tx_id=$2,meta=$3,canceled_at=NOW() WHERE id=$1`
+	return config.DB.QueryRowx(query, t.ID, t.Meta).StructScan(t)
+}
