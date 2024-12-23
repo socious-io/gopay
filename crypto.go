@@ -1,71 +1,84 @@
+// Package gopay provides functions to interact with multiple cryptocurrency networks and retrieve transaction information.
 package gopay
 
 import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 )
 
+// Chains represents a slice of Chain objects. Each Chain can represent a different blockchain network.
 type Chains []Chain
 
+// Chain represents a blockchain network, such as Ethereum (EVM) or Cardano. It includes network details like its name, explorer URL,
+// contract address, associated tokens, type, and network mode.
 type Chain struct {
-	Name            string        `json:"name"`
-	Explorer        string        `json:"explorer"`
-	ContractAddress string        `json:"contract_address"`
-	Tokens          []CryptoToken `json:"-"`
-	Type            NetworkType   `json:"type"`
-	Mode            NetworkMode   `json:"mode"`
-	ApiKey          string        `json:"-"`
+	Name            string        `json:"name"`             // Name of the blockchain network
+	Explorer        string        `json:"explorer"`         // URL of the block explorer for the network
+	ContractAddress string        `json:"contract_address"` // Address of the contract associated with the network
+	Tokens          []CryptoToken `json:"-"`                // List of tokens associated with the blockchain, hidden in JSON output
+	Type            NetworkType   `json:"type"`             // Type of blockchain (e.g., EVM, Cardano)
+	Mode            NetworkMode   `json:"mode"`             // Network operation mode (e.g., mainnet, testnet)
+	ApiKey          string        `json:"-"`                // API key for interacting with the blockchain explorer, hidden in JSON output
 }
 
+// CryptoToken represents a specific token on a blockchain. It includes the token's name, symbol, address, and the number of decimals it uses.
 type CryptoToken struct {
-	Name     string `json:"name"`
-	Symbol   string `json:"symbol"`
-	Address  string `json:"address"`
-	Decimals int    `json:"decimals"`
+	Name     string `json:"name"`     // Name of the token (e.g., "Ethereum")
+	Symbol   string `json:"symbol"`   // Symbol of the token (e.g., "ETH")
+	Address  string `json:"address"`  // Blockchain address associated with the token
+	Decimals int    `json:"decimals"` // Number of decimal places the token supports
 }
 
+// CryptoTransactionInfo contains details about a transaction on the blockchain, such as transaction hash, amount,
+// sender and recipient addresses, token details, confirmation status, and date.
 type CryptoTransactionInfo struct {
-	TxHash      string      `json:"txhash"`
-	TotalAmount float64     `json:"total_amount"`
-	To          string      `json:"to"`
-	From        string      `json:"from"`
-	Token       CryptoToken `json:"token"`
-	Date        time.Time   `json:"date"`
-	Valid       bool        `json:"valid"`
-	Message     string      `json:"message"`
-	Meta        interface{} `json:"meta"`
+	TxHash      string      `json:"txhash"`       // Transaction hash (unique identifier for the transaction)
+	TotalAmount float64     `json:"total_amount"` // Total amount of tokens transferred in the transaction
+	To          string      `json:"to"`           // Address of the recipient
+	From        string      `json:"from"`         // Address of the sender
+	Token       CryptoToken `json:"token"`        // Token associated with the transaction
+	Date        time.Time   `json:"date"`         // Date and time of the transaction
+	Confirmed   bool        `json:"confirmed"`    // Confirmation status of the transaction (e.g., confirmed or not)
+	Message     string      `json:"message"`      // Optional message associated with the transaction
+	Meta        interface{} `json:"meta"`         // Additional metadata associated with the transaction
 }
 
+// EvmTokenTransferResponse is the structure of the response received from an EVM-compatible blockchain explorer API.
+// It contains details about a specific token transfer transaction.
 type EvmTokenTransferResponse struct {
-	BlockNumber       string `json:"blockNumber"`
-	TimeStamp         string `json:"timeStamp"`
-	Hash              string `json:"hash"`
-	Nonce             string `json:"nonce"`
-	BlockHash         string `json:"blockHash"`
-	From              string `json:"from"`
-	ContractAddress   string `json:"contractAddress"`
-	To                string `json:"to"`
-	Value             string `json:"value"`
-	TokenName         string `json:"tokenName"`
-	TokenSymbol       string `json:"tokenSymbol"`
-	TokenDecimal      string `json:"tokenDecimal"`
-	TransactionIndex  string `json:"transactionIndex"`
-	Gas               string `json:"gas"`
-	GasPrice          string `json:"gasPrice"`
-	GasUsed           string `json:"gasUsed"`
-	CumulativeGasUsed string `json:"cumulativeGasUsed"`
-	Input             string `json:"input"`
-	Confirmations     string `json:"confirmations"`
+	BlockNumber       string `json:"blockNumber"`       // Block number where the transaction is included
+	TimeStamp         string `json:"timeStamp"`         // Timestamp of the transaction
+	Hash              string `json:"hash"`              // Unique hash for the transaction
+	Nonce             string `json:"nonce"`             // Transaction nonce
+	BlockHash         string `json:"blockHash"`         // Block hash in which the transaction is recorded
+	From              string `json:"from"`              // Address of the sender
+	ContractAddress   string `json:"contractAddress"`   // Contract address associated with the token transfer
+	To                string `json:"to"`                // Address of the recipient
+	Value             string `json:"value"`             // Amount transferred (in token's smallest unit)
+	TokenName         string `json:"tokenName"`         // Token name (e.g., "ETH")
+	TokenSymbol       string `json:"tokenSymbol"`       // Token symbol (e.g., "ETH")
+	TokenDecimal      string `json:"tokenDecimal"`      // Token decimal precision
+	TransactionIndex  string `json:"transactionIndex"`  // Index of the transaction in the block
+	Gas               string `json:"gas"`               // Gas used for the transaction
+	GasPrice          string `json:"gasPrice"`          // Gas price for the transaction
+	GasUsed           string `json:"gasUsed"`           // Total gas used in the transaction
+	CumulativeGasUsed string `json:"cumulativeGasUsed"` // Total gas used in the block up to the transaction
+	Input             string `json:"input"`             // Input data (for contract calls)
+	Confirmations     string `json:"confirmations"`     // Number of confirmations the transaction has received
 }
 
+// CryptoParams holds parameters used to retrieve transaction information, such as the transaction hash and token address.
 type CryptoParams struct {
-	TxHash       string
-	TokenAddress string
+	TxHash       string // The transaction hash (ID) for the blockchain transaction.
+	TokenAddress string // The address of the token associated with the transaction.
 }
 
+// GetTXInfo retrieves the transaction information based on the transaction hash and token. It identifies the appropriate blockchain
+// (EVM or Cardano) based on the chain configuration and calls the corresponding method to retrieve transaction details.
 func (c Chain) GetTXInfo(txHash string, token CryptoToken) (*CryptoTransactionInfo, error) {
 	switch c.Type {
 	case EVM:
@@ -77,10 +90,12 @@ func (c Chain) GetTXInfo(txHash string, token CryptoToken) (*CryptoTransactionIn
 	}
 }
 
+// ID returns the transaction hash as a string identifier for the CryptoTransactionInfo.
 func (t CryptoTransactionInfo) ID() string {
 	return t.TxHash
 }
 
+// getEvmTXInfo retrieves detailed transaction information from an Ethereum-like blockchain (EVM) using a block explorer API.
 func (c Chain) getEvmTXInfo(txHash string, token CryptoToken) (*CryptoTransactionInfo, error) {
 	url := fmt.Sprintf("%s?module=account&action=tokentx&address=%s&apikey=%s", c.Explorer, c.ContractAddress, c.ApiKey)
 	resp, err := http.Get(url)
@@ -115,6 +130,13 @@ func (c Chain) getEvmTXInfo(txHash string, token CryptoToken) (*CryptoTransactio
 		return nil, fmt.Errorf("transaction %s not found", txHash)
 	}
 
+	confirms, _ := strconv.Atoi(evmInfo.Confirmations)
+	// Redo if blocks confirms are less that 10 blocks
+	if confirms < 10 {
+		time.Sleep(time.Second)
+		return c.getEvmTXInfo(txHash, token)
+	}
+
 	return &CryptoTransactionInfo{
 		TxHash:      txHash,
 		TotalAmount: fromStrTokenValueToNumber(evmInfo.Value, evmInfo.TokenDecimal),
@@ -123,16 +145,17 @@ func (c Chain) getEvmTXInfo(txHash string, token CryptoToken) (*CryptoTransactio
 		To:          evmInfo.To,
 		Meta:        evmInfo,
 		Token:       token,
-		Valid:       true,
+		Confirmed:   confirms > 10,
 	}, nil
 }
 
+// getCardanoTXInfo is a placeholder function for retrieving Cardano transaction information. Currently not implemented.
 func (Chain) getCardanoTXInfo(_ string) (*CryptoTransactionInfo, error) {
 	return nil, fmt.Errorf("cardano transactions not implemented")
 }
 
-func (chains Chains) CryptoCryptoTransactionInfo(params CryptoParams) (*CryptoTransactionInfo, error) {
-
+// TransactionInfo searches for a specific token and transaction hash, retrieves the appropriate chain, and returns transaction details.
+func (chains Chains) TransactionInfo(params CryptoParams) (*CryptoTransactionInfo, error) {
 	for _, c := range chains {
 		for _, t := range c.Tokens {
 			if strings.EqualFold(t.Address, params.TokenAddress) {

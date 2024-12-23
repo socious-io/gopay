@@ -10,13 +10,14 @@ import (
 
 // Migration struct defines a migration version and its SQL query.
 type Migration struct {
-	Version   string
-	Query     string
-	AppliedAt time.Time
+	Version   string    // Version represents the migration version.
+	Query     string    // Query is the SQL query to be executed for this migration.
+	AppliedAt time.Time // AppliedAt is the timestamp when the migration was applied.
 }
 
 // List of migrations for the payment package, including enum creation
 var migrations = []Migration{
+	// Migration 1: Create ENUM types for transaction-related data (like transaction type, payment status).
 	{
 		Version: "2024-01-01-create-enums",
 		Query: `-- Create custom ENUM types if not already created
@@ -29,6 +30,7 @@ var migrations = []Migration{
 			'PAID_OUT', 'CANCELED', 'REFUNDED'
 		);`,
 	},
+	// Migration 2: Create the payments table to track payment details.
 	{
 		Version: "2024-01-02-create-payments-table",
 		Query: fmt.Sprintf(`
@@ -48,6 +50,7 @@ var migrations = []Migration{
 			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		);`, "{prefix}", "currency", "payment_status"),
 	},
+	// Migration 3: Create a table for payment identities linking payments to users.
 	{
 		Version: "2024-01-03-create-payment_identities-table",
 		Query: fmt.Sprintf(`
@@ -61,6 +64,7 @@ var migrations = []Migration{
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		);`, "{prefix}", "{prefix}"),
 	},
+	// Migration 4: Create a transactions table to track payment transactions.
 	{
 		Version: "2024-01-04-create-transactions-table",
 		Query: fmt.Sprintf(`
@@ -80,6 +84,7 @@ var migrations = []Migration{
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		);`, "{prefix}", "{prefix}", "transaction_type"),
 	},
+	// Migration 5: Create the payment_migrations table to track which migrations have been applied.
 	{
 		Version: "2024-01-05-create-payment_migrations-table",
 		Query: fmt.Sprintf(`
