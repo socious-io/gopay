@@ -48,6 +48,7 @@ type PaymentParams struct {
 	Description string
 	Ref         string
 	Currency    Currency
+	TotalAmount float64
 	Meta        interface{}
 }
 
@@ -307,7 +308,7 @@ func New(params PaymentParams) (*Payment, error) {
 
 	// Execute query and scan the returned row into the struct
 	query = fmt.Sprintf(query, payment.Table())
-	if err := config.DB.QueryRowx(query, params.Tag, params.Description, params.Ref, 0.0, params.Currency, INITIATED, metaJSON).
+	if err := config.DB.QueryRowx(query, params.Tag, params.Description, params.Ref, params.TotalAmount, params.Currency, INITIATED, metaJSON).
 		StructScan(payment); err != nil {
 		return nil, fmt.Errorf("failed to create payment: %w", err)
 	}
