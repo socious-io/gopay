@@ -47,7 +47,7 @@ var migrations = []Migration{
 			crypto_currency TEXT,
 			crypto_currency_rate DECIMAL(20, 6),
 			meta JSONB,
-			status %s DEFAULT INITIATED,
+			status %s DEFAULT 'INITIATED',
 			type %s,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
