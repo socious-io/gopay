@@ -3,6 +3,7 @@ package gopay
 import (
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -35,7 +36,7 @@ var migrations = []Migration{
 	{
 		Version: "2024-01-02-create-payments-table",
 		Query: fmt.Sprintf(`
-		CREATE TABLE IF NOT EXISTS %s_payments (
+		CREATE TABLE IF NOT EXISTS %spayments (
 			id UUID PRIMARY KEY,
 			tag TEXT,
 			description TEXT,
@@ -56,9 +57,9 @@ var migrations = []Migration{
 	{
 		Version: "2024-01-03-create-payment_identities-table",
 		Query: fmt.Sprintf(`
-		CREATE TABLE IF NOT EXISTS %s_payment_identities (
+		CREATE TABLE IF NOT EXISTS %spayment_identities (
 			id UUID PRIMARY KEY,
-			payment_id UUID REFERENCES %s_payments(id) ON DELETE CASCADE,
+			payment_id UUID REFERENCES %spayments(id) ON DELETE CASCADE,
 			identity_id UUID NOT NULL,
 			role_name TEXT,
 			account TEXT NOT NULL,
@@ -71,9 +72,9 @@ var migrations = []Migration{
 	{
 		Version: "2024-01-04-create-transactions-table",
 		Query: fmt.Sprintf(`
-		CREATE TABLE IF NOT EXISTS %s_transactions (
+		CREATE TABLE IF NOT EXISTS %stransactions (
 			id UUID PRIMARY KEY,
-			payment_id UUID REFERENCES %s_payments(id) ON DELETE CASCADE,
+			payment_id UUID REFERENCES %spayments(id) ON DELETE CASCADE,
 			identity_id UUID NOT NULL,
 			tx_id TEXT NOT NULL,
 			tag TEXT,
@@ -91,7 +92,7 @@ var migrations = []Migration{
 	{
 		Version: "2024-01-05-create-payment_migrations-table",
 		Query: fmt.Sprintf(`
-		CREATE TABLE IF NOT EXISTS %s_payment_migrations (
+		CREATE TABLE IF NOT EXISTS %spayment_migrations (
 			version VARCHAR(50) PRIMARY KEY,
 			applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		);`, "{prefix}"),
@@ -118,6 +119,7 @@ func runMigrate(db *sqlx.DB, prefix string) error {
 			log.Printf("Applying migration: %s", migration.Version)
 			query := migration.Query
 			query = replacePrefix(query, prefix) // Replace `{prefix}` with the actual prefix
+			fmt.Println(query)
 			_, err := db.Exec(query)
 			if err != nil {
 				return fmt.Errorf("failed to apply migration %s: %w", migration.Version, err)
@@ -136,7 +138,10 @@ func runMigrate(db *sqlx.DB, prefix string) error {
 
 // replacePrefix replaces `{prefix}` in migration queries with the actual table prefix.
 func replacePrefix(query, prefix string) string {
-	return fmt.Sprintf(query, prefix)
+	if prefix != "" {
+		prefix = fmt.Sprintf("%s_", prefix)
+	}
+	return strings.ReplaceAll(query, "{prefix}", prefix)
 }
 
 // createMigrationsTable ensures the `payment_migrations` table exists with dynamic prefix.
