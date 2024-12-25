@@ -193,7 +193,17 @@ func (p *Payment) Deposit() error {
 	if !info.Confirmed {
 		return t.Cancel()
 	}
-	return t.Verify()
+	if err := t.Verify(); err != nil {
+		return err
+	}
+
+	query := `
+		UPDATE %s
+		SET status='DEPOSITED' updated_at = NOW()
+		WHERE id = $3
+		RETURNING *`
+	query = fmt.Sprint(query, p.Table())
+	return config.DB.QueryRowx(query, p.ID).StructScan(p)
 }
 
 // ConfirmDeposit processes a crypto payment deposit confirmation.
@@ -244,7 +254,17 @@ func (p *Payment) ConfirmDeposit(txID string) error {
 	}
 
 	// Verify the transaction if it's confirmed
-	return t.Verify()
+	if err := t.Verify(); err != nil {
+		return err
+	}
+
+	query := `
+		UPDATE %s
+		SET status='DEPOSITED' updated_at = NOW()
+		WHERE id = $3
+		RETURNING *`
+	query = fmt.Sprint(query, p.Table())
+	return config.DB.QueryRowx(query, p.ID).StructScan(p)
 }
 
 // Fetch retrieves a payment by ID, including its associated identities and transactions.

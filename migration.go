@@ -21,11 +21,12 @@ var migrations = []Migration{
 	{
 		Version: "2024-01-01-create-enums",
 		Query: `-- Create custom ENUM types if not already created
-		CREATE TYPE IF NOT EXISTS transaction_type AS ENUM ('DEPOSIT', 'PAYOUT');
-		CREATE TYPE IF NOT EXISTS network_type AS ENUM ('EVM', 'CARDANO');
-		CREATE TYPE IF NOT EXISTS network_mode AS ENUM ('MAINNET', 'TESTNET');
-		CREATE TYPE IF NOT EXISTS currency AS ENUM ('USD', 'JPY');
-		CREATE TYPE IF NOT EXISTS payment_status AS ENUM (
+		CREATE TYPE gopay_transaction_type AS ENUM ('DEPOSIT', 'PAYOUT');
+		CREATE TYPE gopay_network_type AS ENUM ('EVM', 'CARDANO');
+		CREATE TYPE gopay_network_mode AS ENUM ('MAINNET', 'TESTNET');
+		CREATE TYPE gopay_currency AS ENUM ('USD', 'JPY');
+		CREATE TYPE gopay_payment_type AS ENUM ('FIAT', 'CRYPTO');
+		CREATE TYPE gopay_payment_status AS ENUM (
 			'INITIATED', 'PENDING_DEPOSIT', 'DEPOSITED', 'ON_HOLD',
 			'PAID_OUT', 'CANCELED', 'REFUNDED'
 		);`,
@@ -38,7 +39,7 @@ var migrations = []Migration{
 			id UUID PRIMARY KEY,
 			tag TEXT,
 			description TEXT,
-			unique_ref TEXT,
+			unique_ref TEXT UNIQUE NOT NULL,
 			total_amount DECIMAL(20, 6),
 			currency %s,
 			fiat_service_name VARCHAR(32),
@@ -46,9 +47,10 @@ var migrations = []Migration{
 			crypto_currency_rate DECIMAL(20, 6),
 			meta JSONB,
 			status %s DEFAULT INITIATED,
+			type %s,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-		);`, "{prefix}", "currency", "payment_status"),
+		);`, "{prefix}", "gopay_currency", "gopay_payment_status", "gopay_payment_type"),
 	},
 	// Migration 3: Create a table for payment identities linking payments to users.
 	{
@@ -59,6 +61,7 @@ var migrations = []Migration{
 			payment_id UUID REFERENCES %s_payments(id) ON DELETE CASCADE,
 			identity_id UUID NOT NULL,
 			role_name TEXT,
+			account TEXT NOT NULL,
 			allocated_amount DECIMAL(20, 6),
 			meta JSONB,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -82,7 +85,7 @@ var migrations = []Migration{
 			canceled_at TIMESTAMP,
 			verified_at TIMESTAMP,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-		);`, "{prefix}", "{prefix}", "transaction_type"),
+		);`, "{prefix}", "{prefix}", "gopay_transaction_type"),
 	},
 	// Migration 5: Create the payment_migrations table to track which migrations have been applied.
 	{
