@@ -37,7 +37,7 @@ var migrations = []Migration{
 		Version: "2024-01-02-create-payments-table",
 		Query: fmt.Sprintf(`
 		CREATE TABLE IF NOT EXISTS %spayments (
-			id UUID PRIMARY KEY,
+			id UUID NOT NULL DEFAULT public.uuid_generate_v4() PRIMARY KEY,
 			tag TEXT,
 			description TEXT,
 			unique_ref TEXT UNIQUE NOT NULL,
@@ -58,7 +58,7 @@ var migrations = []Migration{
 		Version: "2024-01-03-create-payment_identities-table",
 		Query: fmt.Sprintf(`
 		CREATE TABLE IF NOT EXISTS %spayment_identities (
-			id UUID PRIMARY KEY,
+			id UUID NOT NULL DEFAULT public.uuid_generate_v4() PRIMARY KEY,
 			payment_id UUID REFERENCES %spayments(id) ON DELETE CASCADE,
 			identity_id UUID NOT NULL,
 			role_name TEXT,
@@ -73,7 +73,7 @@ var migrations = []Migration{
 		Version: "2024-01-04-create-transactions-table",
 		Query: fmt.Sprintf(`
 		CREATE TABLE IF NOT EXISTS %stransactions (
-			id UUID PRIMARY KEY,
+			id UUID NOT NULL DEFAULT public.uuid_generate_v4() PRIMARY KEY,
 			payment_id UUID REFERENCES %spayments(id) ON DELETE CASCADE,
 			identity_id UUID NOT NULL,
 			tx_id TEXT NOT NULL,

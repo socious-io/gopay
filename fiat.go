@@ -14,9 +14,9 @@ type Fiats []Fiat
 
 // Fiat represents a single fiat payment service provider such as Stripe.
 type Fiat struct {
-	Name    string      // The name of the payment service provider (e.g., "STRIPE").
-	ApiKey  string      // The API key used to authenticate requests to the payment service.
-	Service FiatService // The specific fiat service type (e.g., STRIPE).
+	Name    string      `mapstructure:"name"`    // The name of the payment service provider (e.g., "STRIPE").
+	ApiKey  string      `mapstructure:"apikey"`  // The API key used to authenticate requests to the payment service.
+	Service FiatService `mapstructure:"service"` // The specific fiat service type (e.g., STRIPE).
 }
 
 // Transfer represents information about a transfer (e.g., recipient, amount).

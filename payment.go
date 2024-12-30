@@ -19,12 +19,12 @@ type Payment struct {
 	Currency           Currency       `db:"currency" json:"currency"`
 	FiatServiceName    *string        `db:"fiat_service_name" json:"fiat_service_name"`
 	CryptoCurrency     *string        `db:"crypto_currency" json:"crypto_currency"`
-	CryptoCurrencyRate float64        `db:"crypto_currency_rate" json:"crypto_currency_rate"`
+	CryptoCurrencyRate *float64       `db:"crypto_currency_rate" json:"crypto_currency_rate"`
 	Meta               types.JSONText `db:"meta" json:"meta,omitempty"`
 	Status             PaymentStatus  `db:"status" json:"status"`
 	Type               PaymentType    `db:"type" json:"type"`
 	CreatedAt          time.Time      `db:"created_at" json:"created_at"`
-	UpdatedAt          time.Time      `db:"created_at" json:"updated_at"`
+	UpdatedAt          time.Time      `db:"updated_at" json:"updated_at"`
 
 	Identities   []PaymentIdentity `db:"-" json:"identities"`
 	Transactions []Transaction     `db:"-" json:"transactions"`
@@ -49,6 +49,7 @@ type PaymentParams struct {
 	Ref         string
 	Currency    Currency
 	TotalAmount float64
+	Type        PaymentType
 	Meta        interface{}
 }
 
@@ -93,12 +94,14 @@ func (p *Payment) AddIdentity(params IdentityParams) (*PaymentIdentity, error) {
 		INSERT INTO %s (payment_id, identity_id, role_name, allocated_amount, meta, account)
 		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING *`
-	query = fmt.Sprint(query, p.Table())
+	query = fmt.Sprintf(query, identity.Table())
 	// Execute query and scan the returned row into the struct
-	if err := config.DB.QueryRowx(query, p.ID, params.ID, params.RoleName, params.Amount, metaJSON, params.Amount).
+	if err := config.DB.QueryRowx(query, p.ID, params.ID, params.RoleName, params.Amount, metaJSON, params.Account).
 		StructScan(identity); err != nil {
 		return nil, err
 	}
+	p.Identities = append(p.Identities, *identity)
+
 	return identity, nil
 }
 
@@ -110,7 +113,7 @@ func (p *Payment) SetToCryptoMode(address string, rate float64) error {
 		SET crypto_currency = $1, crypto_currency_rate = $2, type = $3, updated_at = NOW()
 		WHERE id = $4
 		RETURNING *`
-	query = fmt.Sprint(query, p.Table())
+	query = fmt.Sprintf(query, p.Table())
 	// Execute query and scan the returned row back into the Payment struct
 	if err := config.DB.QueryRowx(query, address, rate, CRYPTO, p.ID).StructScan(p); err != nil {
 		return fmt.Errorf("failed to set payment to crypto mode: %w", err)
@@ -127,7 +130,7 @@ func (p *Payment) SetToFiatMode(name string) error {
 		SET fiat_service_name = $1, type = $2, updated_at = NOW()
 		WHERE id = $3
 		RETURNING *`
-	query = fmt.Sprint(query, p.Table())
+	query = fmt.Sprintf(query, p.Table())
 	// Execute query and scan the updated row back into the Payment struct
 	if err := config.DB.QueryRowx(query, name, FIAT, p.ID).
 		StructScan(p); err != nil {
@@ -203,7 +206,7 @@ func (p *Payment) Deposit() error {
 		SET status='DEPOSITED' updated_at = NOW()
 		WHERE id = $3
 		RETURNING *`
-	query = fmt.Sprint(query, p.Table())
+	query = fmt.Sprintf(query, p.Table())
 	return config.DB.QueryRowx(query, p.ID).StructScan(p)
 }
 
@@ -264,7 +267,7 @@ func (p *Payment) ConfirmDeposit(txID string) error {
 		SET status='DEPOSITED' updated_at = NOW()
 		WHERE id = $3
 		RETURNING *`
-	query = fmt.Sprint(query, p.Table())
+	query = fmt.Sprintf(query, p.Table())
 	return config.DB.QueryRowx(query, p.ID).StructScan(p)
 }
 
@@ -302,13 +305,13 @@ func New(params PaymentParams) (*Payment, error) {
 
 	// SQL query with RETURNING *
 	query := `
-		INSERT INTO %s (tag, description, unique_ref, total_amount, currency, status, meta)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO %s (tag, description, unique_ref, total_amount, currency, status, type, meta)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		RETURNING *`
 
 	// Execute query and scan the returned row into the struct
 	query = fmt.Sprintf(query, payment.Table())
-	if err := config.DB.QueryRowx(query, params.Tag, params.Description, params.Ref, params.TotalAmount, params.Currency, INITIATED, metaJSON).
+	if err := config.DB.QueryRowx(query, params.Tag, params.Description, params.Ref, params.TotalAmount, params.Currency, INITIATED, params.Type, metaJSON).
 		StructScan(payment); err != nil {
 		return nil, fmt.Errorf("failed to create payment: %w", err)
 	}

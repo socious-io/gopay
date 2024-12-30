@@ -16,21 +16,21 @@ type Chains []Chain
 // Chain represents a blockchain network, such as Ethereum (EVM) or Cardano. It includes network details like its name, explorer URL,
 // contract address, associated tokens, type, and network mode.
 type Chain struct {
-	Name            string        `json:"name"`             // Name of the blockchain network
-	Explorer        string        `json:"explorer"`         // URL of the block explorer for the network
-	ContractAddress string        `json:"contract_address"` // Address of the contract associated with the network
-	Tokens          []CryptoToken `json:"-"`                // List of tokens associated with the blockchain, hidden in JSON output
-	Type            NetworkType   `json:"type"`             // Type of blockchain (e.g., EVM, Cardano)
-	Mode            NetworkMode   `json:"mode"`             // Network operation mode (e.g., mainnet, testnet)
-	ApiKey          string        `json:"-"`                // API key for interacting with the blockchain explorer, hidden in JSON output
+	Name            string        `json:"name" mapstructure:"name"`                        // Name of the blockchain network
+	Explorer        string        `json:"explorer" mapstructure:"explorer"`                // URL of the block explorer for the network
+	ContractAddress string        `json:"contract_address" mapstructure:"contractaddress"` // Address of the contract associated with the network
+	Tokens          []CryptoToken `json:"-" mapstructure:"tokens"`                         // List of tokens associated with the blockchain, hidden in JSON output
+	Type            NetworkType   `json:"type" mapstructure:"type"`                        // Type of blockchain (e.g., EVM, Cardano)
+	Mode            NetworkMode   `json:"mode" mapstructure:"mode"`                        // Network operation mode (e.g., mainnet, testnet)
+	ApiKey          string        `json:"-" mapstructure:"apikey"`                         // API key for interacting with the blockchain explorer, hidden in JSON output
 }
 
 // CryptoToken represents a specific token on a blockchain. It includes the token's name, symbol, address, and the number of decimals it uses.
 type CryptoToken struct {
-	Name     string `json:"name"`     // Name of the token (e.g., "Ethereum")
-	Symbol   string `json:"symbol"`   // Symbol of the token (e.g., "ETH")
-	Address  string `json:"address"`  // Blockchain address associated with the token
-	Decimals int    `json:"decimals"` // Number of decimal places the token supports
+	Name     string `json:"name" mapstructure:"name"`         // Name of the token (e.g., "Ethereum")
+	Symbol   string `json:"symbol" mapstructure:"symbol"`     // Symbol of the token (e.g., "ETH")
+	Address  string `json:"address" mapstructure:"address"`   // Blockchain address associated with the token
+	Decimals int    `json:"decimals" mapstructure:"decimals"` // Number of decimal places the token supports
 }
 
 // CryptoTransactionInfo contains details about a transaction on the blockchain, such as transaction hash, amount,

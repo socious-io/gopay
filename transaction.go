@@ -45,7 +45,7 @@ func (t *Transaction) Create() error {
 			$1, $2, $3, $4, $5, $6, $7, $8, $9
 		) RETURNING *
 	`
-	query = fmt.Sprint(query, t.Table())
+	query = fmt.Sprintf(query, t.Table())
 
 	// Execute the insert query and scan the result back into the struct
 	return config.DB.QueryRowx(query, t.PaymentID, t.IdentityID, t.TXID, t.Tag, t.Amount, t.Fee, t.Discount, t.Type, t.Meta).
