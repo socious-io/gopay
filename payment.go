@@ -204,7 +204,7 @@ func (p *Payment) Deposit() error {
 	query := `
 		UPDATE %s
 		SET status='DEPOSITED' updated_at = NOW()
-		WHERE id = $3
+		WHERE id = $1
 		RETURNING *`
 	query = fmt.Sprintf(query, p.Table())
 	return config.DB.QueryRowx(query, p.ID).StructScan(p)
@@ -264,8 +264,8 @@ func (p *Payment) ConfirmDeposit(txID string) error {
 
 	query := `
 		UPDATE %s
-		SET status='DEPOSITED' updated_at = NOW()
-		WHERE id = $3
+		SET status='DEPOSITED', updated_at = NOW()
+		WHERE id = $1
 		RETURNING *`
 	query = fmt.Sprintf(query, p.Table())
 	return config.DB.QueryRowx(query, p.ID).StructScan(p)

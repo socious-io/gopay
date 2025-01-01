@@ -14,9 +14,10 @@ type Fiats []Fiat
 
 // Fiat represents a single fiat payment service provider such as Stripe.
 type Fiat struct {
-	Name    string      `mapstructure:"name"`    // The name of the payment service provider (e.g., "STRIPE").
-	ApiKey  string      `mapstructure:"apikey"`  // The API key used to authenticate requests to the payment service.
-	Service FiatService `mapstructure:"service"` // The specific fiat service type (e.g., STRIPE).
+	Name      string      `mapstructure:"name"`       // The name of the payment service provider (e.g., "STRIPE").
+	ApiKey    string      `mapstructure:"apikey"`     // The API key used to authenticate requests to the payment service.
+	ReturnURL string      `mapstructure:"return_url"` // The API key used to authenticate requests to the payment service.
+	Service   FiatService `mapstructure:"service"`    // The specific fiat service type (e.g., STRIPE).
 }
 
 // Transfer represents information about a transfer (e.g., recipient, amount).
@@ -93,7 +94,9 @@ func (f Fiat) StripePay(params FiatParams) (*FiatTransactionInfo, error) {
 
 	// If there is a transfer, add related data to the payment intent.
 	if params.Transfer != nil {
-		intentParams.ConfirmationMethod = stripe.String("automatic")
+		intentParams.ConfirmationMethod = stripe.String(string(stripe.PaymentIntentConfirmationMethodAutomatic))
+		intentParams.ReturnURL = stripe.String(f.ReturnURL)
+		intentParams.Confirm = stripe.Bool(true)
 		intentParams.ApplicationFeeAmount = stripe.Int64(int64(params.Amount - params.Transfer.Amount))
 		intentParams.OnBehalfOf = stripe.String(params.Transfer.Destination)
 		intentParams.TransferData = &stripe.PaymentIntentTransferDataParams{
@@ -116,18 +119,22 @@ func (f Fiat) StripePay(params FiatParams) (*FiatTransactionInfo, error) {
 		Meta:        result,
 	}
 
-	// Confirm the payment intent using the selected payment method.
-	if _, err := paymentintent.Confirm(
-		result.ID,
-		&stripe.PaymentIntentConfirmParams{
-			PaymentMethod: stripe.String(method.ID),
-		},
-	); err != nil {
-		return info, err // Return the transaction info and any errors during confirmation.
+	if result.Status != stripe.PaymentIntentStatusSucceeded {
+		return info, fmt.Errorf("Payment is not completed and is in the %s status", result.Status)
 	}
 
-	info.Confirmed = true // Mark the transaction as confirmed if successful.
+	info.Confirmed = true
 	return info, nil
+
+	// // Confirm the payment intent using the selected payment method.
+	// if _, err := paymentintent.Confirm(
+	// 	result.ID,
+	// 	&stripe.PaymentIntentConfirmParams{
+	// 		PaymentMethod: stripe.String(method.ID),
+	// 	},
+	// ); err != nil {
+	// 	return info, err // Return the transaction info and any errors during confirmation.
+	// }
 }
 
 // stripeAmount converts a floating point amount to the appropriate integer amount for the selected currency.
