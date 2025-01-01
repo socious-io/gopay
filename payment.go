@@ -203,7 +203,7 @@ func (p *Payment) Deposit() error {
 
 	query := `
 		UPDATE %s
-		SET status='DEPOSITED' updated_at = NOW()
+		SET status='DEPOSITED', updated_at = NOW()
 		WHERE id = $1
 		RETURNING *`
 	query = fmt.Sprintf(query, p.Table())

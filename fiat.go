@@ -14,10 +14,10 @@ type Fiats []Fiat
 
 // Fiat represents a single fiat payment service provider such as Stripe.
 type Fiat struct {
-	Name      string      `mapstructure:"name"`       // The name of the payment service provider (e.g., "STRIPE").
-	ApiKey    string      `mapstructure:"apikey"`     // The API key used to authenticate requests to the payment service.
-	ReturnURL string      `mapstructure:"return_url"` // The API key used to authenticate requests to the payment service.
-	Service   FiatService `mapstructure:"service"`    // The specific fiat service type (e.g., STRIPE).
+	Name     string      `mapstructure:"name"`     // The name of the payment service provider (e.g., "STRIPE").
+	ApiKey   string      `mapstructure:"apikey"`   // The API key used to authenticate requests to the payment service.
+	Callback string      `mapstructure:"callback"` // The API key used to authenticate requests to the payment service.
+	Service  FiatService `mapstructure:"service"`  // The specific fiat service type (e.g., STRIPE).
 }
 
 // Transfer represents information about a transfer (e.g., recipient, amount).
@@ -95,7 +95,7 @@ func (f Fiat) StripePay(params FiatParams) (*FiatTransactionInfo, error) {
 	// If there is a transfer, add related data to the payment intent.
 	if params.Transfer != nil {
 		intentParams.ConfirmationMethod = stripe.String(string(stripe.PaymentIntentConfirmationMethodAutomatic))
-		intentParams.ReturnURL = stripe.String(f.ReturnURL)
+		intentParams.ReturnURL = stripe.String(f.Callback)
 		intentParams.Confirm = stripe.Bool(true)
 		intentParams.ApplicationFeeAmount = stripe.Int64(int64(params.Amount - params.Transfer.Amount))
 		intentParams.OnBehalfOf = stripe.String(params.Transfer.Destination)
