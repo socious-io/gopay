@@ -56,7 +56,7 @@ func (t *Transaction) Create() error {
 // It returns an error if the update fails.
 func (t *Transaction) Verify() error {
 	// SQL query to update a transaction as verified
-	query := `UPDATE %s SET tx_id=$2, meta=$3, verified_at=NOW() WHERE id=$1`
+	query := `UPDATE %s SET tx_id=$2, meta=$3, verified_at=NOW() WHERE id=$1 RETURNING *`
 	query = fmt.Sprintf(query, t.Table())
 
 	// Execute the update query and scan the result back into the struct
@@ -67,7 +67,7 @@ func (t *Transaction) Verify() error {
 // It returns an error if the cancel operation fails.
 func (t *Transaction) Cancel() error {
 	// SQL query to update a transaction as canceled
-	query := `UPDATE %s SET tx_id=$2, meta=$3, canceled_at=NOW() WHERE id=$1`
+	query := `UPDATE %s SET meta=$2, canceled_at=NOW() WHERE id=$1 RETURNING *`
 	query = fmt.Sprintf(query, t.Table())
 
 	// Execute the update query and scan the result back into the struct
