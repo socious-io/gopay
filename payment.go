@@ -214,7 +214,7 @@ func (p *Payment) Deposit() error {
 // It checks if the payment type is CRYPTO, creates a corresponding transaction,
 // retrieves the transaction info from the blockchain, and verifies the deposit.
 // If the deposit is not confirmed, the transaction is canceled.
-func (p *Payment) ConfirmDeposit(txID string) error {
+func (p *Payment) ConfirmDeposit(txID string, meta interface{}) error {
 	// Only allow CRYPTO payment types to call this method
 	if p.Type != CRYPTO {
 		return fmt.Errorf("only crypto payments can call this")
@@ -245,13 +245,13 @@ func (p *Payment) ConfirmDeposit(txID string) error {
 	info, err := config.Chains.TransactionInfo(params)
 	if err != nil {
 		// If there is an error, store the info and cancel the transaction
-		t.Meta, _ = json.Marshal(map[string]interface{}{"info": info, "error": err.Error()})
+		t.Meta, _ = json.Marshal(map[string]interface{}{"info": info, "meta": meta, "error": err.Error()})
 		t.Cancel()
 		return err
 	}
 
 	// Store the info and check if the transaction is confirmed
-	t.Meta, _ = json.Marshal(map[string]interface{}{"info": info})
+	t.Meta, _ = json.Marshal(map[string]interface{}{"info": info, "meta": meta})
 	if !info.Confirmed {
 		// If the transaction is not confirmed, cancel it
 		return t.Cancel()
