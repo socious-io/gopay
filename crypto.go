@@ -71,6 +71,36 @@ type EvmTokenTransferResponse struct {
 	Confirmations     string `json:"confirmations"`     // Number of confirmations the transaction has received
 }
 
+// CardanoTransactionResponse is the structure of the response received from an Cardano-compatible blockchain explorer API.
+// It contains details about a specific transaction.
+type CardanoTransactionResponse struct {
+	Hash         string `json:"hash"`
+	Block        string `json:"block"`
+	BlockHeight  int    `json:"block_height"`
+	BlockTime    int64  `json:"block_time"`
+	Slot         int64  `json:"slot"`
+	Index        int    `json:"index"`
+	OutputAmount []struct {
+		Unit     string `json:"unit"`
+		Quantity string `json:"quantity"`
+	} `json:"output_amount"`
+	Fees                 string  `json:"fees"`
+	Deposit              string  `json:"deposit"`
+	Size                 int     `json:"size"`
+	InvalidBefore        *string `json:"invalid_before"`    // Nullable string
+	InvalidHereafter     *string `json:"invalid_hereafter"` // Nullable string
+	UTXOCount            int     `json:"utxo_count"`
+	WithdrawalCount      int     `json:"withdrawal_count"`
+	MIRCertCount         int     `json:"mir_cert_count"`
+	DelegationCount      int     `json:"delegation_count"`
+	StakeCertCount       int     `json:"stake_cert_count"`
+	PoolUpdateCount      int     `json:"pool_update_count"`
+	PoolRetireCount      int     `json:"pool_retire_count"`
+	AssetMintOrBurnCount int     `json:"asset_mint_or_burn_count"`
+	RedeemerCount        int     `json:"redeemer_count"`
+	ValidContract        bool    `json:"valid_contract"`
+}
+
 // CryptoParams holds parameters used to retrieve transaction information, such as the transaction hash and token address.
 type CryptoParams struct {
 	TxHash       string // The transaction hash (ID) for the blockchain transaction.
@@ -150,8 +180,47 @@ func (c Chain) getEvmTXInfo(txHash string, token CryptoToken) (*CryptoTransactio
 }
 
 // getCardanoTXInfo is a placeholder function for retrieving Cardano transaction information. Currently not implemented.
-func (Chain) getCardanoTXInfo(_ string) (*CryptoTransactionInfo, error) {
-	return nil, fmt.Errorf("cardano transactions not implemented")
+func (c Chain) getCardanoTXInfo(txHash string) (*CryptoTransactionInfo, error) {
+
+	url := fmt.Sprintf("%s/v1/transaction?hash=%s", c.Explorer, txHash)
+
+	// Create a new request
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		fmt.Errorf("Error creating request: %v", err)
+		return nil, err
+	}
+	req.Header.Set("apiKey", c.ApiKey)
+
+	// Send the request
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Errorf("Error making request:", err)
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected HTTP status: %s", resp.Status)
+	}
+
+	var cardanoInfo *CardanoTransactionResponse
+
+	if err := json.NewDecoder(resp.Body).Decode(&cardanoInfo); err != nil {
+		return nil, fmt.Errorf("error decoding JSON: %v", err)
+	}
+
+	return &CryptoTransactionInfo{
+		TxHash:      txHash,
+		TotalAmount: fromStrTokenValueToNumber(cardanoInfo.Value, cardanoInfo.TokenDecimal),
+		Date:        fromStrTimestampToTime(cardanoInfo.TimeStamp),
+		From:        cardanoInfo.From,
+		To:          cardanoInfo.To,
+		Meta:        cardanoInfo,
+		Token:       cardanoInfo,
+		Confirmed:   cardanoInfo > 10,
+	}, nil
 }
 
 // TransactionInfo searches for a specific token and transaction hash, retrieves the appropriate chain, and returns transaction details.
