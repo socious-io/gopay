@@ -140,6 +140,24 @@ func (p *Payment) SetToFiatMode(name string) error {
 	return nil
 }
 
+// UpdateStatus updates the status to the desired one
+func (p *Payment) UpdateStatus(status PaymentStatus) error {
+	// SQL query with RETURNING *
+	query := `
+		UPDATE %s
+		SET status = $1, updated_at = NOW()
+		WHERE id = $2
+		RETURNING *`
+	query = fmt.Sprintf(query, p.Table())
+	// Execute query and scan the updated row back into the Payment struct
+	if err := config.DB.QueryRowx(query, status, p.ID).
+		StructScan(p); err != nil {
+		return fmt.Errorf("failed to set payment status to %s: %w", status, err)
+	}
+
+	return nil
+}
+
 // Deposit processes the fiat deposit for the payment, creating a corresponding transaction.
 func (p *Payment) Deposit() error {
 	// Only fiat payments can call this
@@ -188,6 +206,7 @@ func (p *Payment) Deposit() error {
 	info, err := config.Fiats.Pay(params)
 	if err != nil {
 		t.Meta, _ = json.Marshal(map[string]interface{}{"info": info, "error": err.Error()})
+		p.UpdateStatus(CANCLED)
 		t.Cancel()
 		return err
 	}
@@ -195,19 +214,14 @@ func (p *Payment) Deposit() error {
 	// Store info in the transaction and verify if successful
 	t.Meta, _ = json.Marshal(map[string]interface{}{"info": info})
 	if !info.Confirmed {
+		p.UpdateStatus(CANCLED)
 		return t.Cancel()
 	}
 	if err := t.Verify(); err != nil {
 		return err
 	}
 
-	query := `
-		UPDATE %s
-		SET status='DEPOSITED', updated_at = NOW()
-		WHERE id = $1
-		RETURNING *`
-	query = fmt.Sprintf(query, p.Table())
-	return config.DB.QueryRowx(query, p.ID).StructScan(p)
+	return p.UpdateStatus(DEPOSITED)
 }
 
 // ConfirmDeposit processes a crypto payment deposit confirmation.
@@ -246,6 +260,7 @@ func (p *Payment) ConfirmDeposit(txID string, meta interface{}) error {
 	if err != nil {
 		// If there is an error, store the info and cancel the transaction
 		t.Meta, _ = json.Marshal(map[string]interface{}{"info": info, "meta": meta, "error": err.Error()})
+		p.UpdateStatus(CANCLED)
 		t.Cancel()
 		return err
 	}
@@ -254,6 +269,7 @@ func (p *Payment) ConfirmDeposit(txID string, meta interface{}) error {
 	t.Meta, _ = json.Marshal(map[string]interface{}{"info": info, "meta": meta})
 	if !info.Confirmed {
 		// If the transaction is not confirmed, cancel it
+		p.UpdateStatus(CANCLED)
 		return t.Cancel()
 	}
 
@@ -262,13 +278,7 @@ func (p *Payment) ConfirmDeposit(txID string, meta interface{}) error {
 		return err
 	}
 
-	query := `
-		UPDATE %s
-		SET status='DEPOSITED', updated_at = NOW()
-		WHERE id = $1
-		RETURNING *`
-	query = fmt.Sprintf(query, p.Table())
-	return config.DB.QueryRowx(query, p.ID).StructScan(p)
+	return p.UpdateStatus(DEPOSITED)
 }
 
 // Fetch retrieves a payment by ID, including its associated identities and transactions.
