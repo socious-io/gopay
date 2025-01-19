@@ -206,7 +206,6 @@ func (p *Payment) Deposit() error {
 	info, err := config.Fiats.Pay(params)
 	if err != nil {
 		t.Meta, _ = json.Marshal(map[string]interface{}{"info": info, "error": err.Error()})
-		p.UpdateStatus(CANCLED)
 		t.Cancel()
 		return err
 	}
@@ -214,7 +213,6 @@ func (p *Payment) Deposit() error {
 	// Store info in the transaction and verify if successful
 	t.Meta, _ = json.Marshal(map[string]interface{}{"info": info})
 	if !info.Confirmed {
-		p.UpdateStatus(CANCLED)
 		return t.Cancel()
 	}
 	if err := t.Verify(); err != nil {
@@ -260,7 +258,6 @@ func (p *Payment) ConfirmDeposit(txID string, meta interface{}) error {
 	if err != nil {
 		// If there is an error, store the info and cancel the transaction
 		t.Meta, _ = json.Marshal(map[string]interface{}{"info": info, "meta": meta, "error": err.Error()})
-		p.UpdateStatus(CANCLED)
 		t.Cancel()
 		return err
 	}
@@ -269,7 +266,6 @@ func (p *Payment) ConfirmDeposit(txID string, meta interface{}) error {
 	t.Meta, _ = json.Marshal(map[string]interface{}{"info": info, "meta": meta})
 	if !info.Confirmed {
 		// If the transaction is not confirmed, cancel it
-		p.UpdateStatus(CANCLED)
 		return t.Cancel()
 	}
 
@@ -317,10 +313,11 @@ func New(params PaymentParams) (*Payment, error) {
 	query := `
 		INSERT INTO %s (tag, description, unique_ref, total_amount, currency, status, type, meta)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		ON CONFLICT (unique_ref) DO UPDATE SET id=%s.id
 		RETURNING *`
 
 	// Execute query and scan the returned row into the struct
-	query = fmt.Sprintf(query, payment.Table())
+	query = fmt.Sprintf(query, payment.Table(), payment.Table())
 	if err := config.DB.QueryRowx(query, params.Tag, params.Description, params.Ref, params.TotalAmount, params.Currency, INITIATED, params.Type, metaJSON).
 		StructScan(payment); err != nil {
 		return nil, fmt.Errorf("failed to create payment: %w", err)
