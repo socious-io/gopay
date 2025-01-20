@@ -140,6 +140,24 @@ func (p *Payment) SetToFiatMode(name string) error {
 	return nil
 }
 
+// UpdateStatus updates the status to the desired one
+func (p *Payment) UpdateStatus(status PaymentStatus) error {
+	// SQL query with RETURNING *
+	query := `
+		UPDATE %s
+		SET status = $1, updated_at = NOW()
+		WHERE id = $2
+		RETURNING *`
+	query = fmt.Sprintf(query, p.Table())
+	// Execute query and scan the updated row back into the Payment struct
+	if err := config.DB.QueryRowx(query, status, p.ID).
+		StructScan(p); err != nil {
+		return fmt.Errorf("failed to set payment status to %s: %w", status, err)
+	}
+
+	return nil
+}
+
 // Deposit processes the fiat deposit for the payment, creating a corresponding transaction.
 func (p *Payment) Deposit() error {
 	// Only fiat payments can call this
@@ -201,13 +219,7 @@ func (p *Payment) Deposit() error {
 		return err
 	}
 
-	query := `
-		UPDATE %s
-		SET status='DEPOSITED', updated_at = NOW()
-		WHERE id = $1
-		RETURNING *`
-	query = fmt.Sprintf(query, p.Table())
-	return config.DB.QueryRowx(query, p.ID).StructScan(p)
+	return p.UpdateStatus(DEPOSITED)
 }
 
 // ConfirmDeposit processes a crypto payment deposit confirmation.
@@ -262,13 +274,7 @@ func (p *Payment) ConfirmDeposit(txID string, meta interface{}) error {
 		return err
 	}
 
-	query := `
-		UPDATE %s
-		SET status='DEPOSITED', updated_at = NOW()
-		WHERE id = $1
-		RETURNING *`
-	query = fmt.Sprintf(query, p.Table())
-	return config.DB.QueryRowx(query, p.ID).StructScan(p)
+	return p.UpdateStatus(DEPOSITED)
 }
 
 // Fetch retrieves a payment by ID, including its associated identities and transactions.
@@ -307,10 +313,11 @@ func New(params PaymentParams) (*Payment, error) {
 	query := `
 		INSERT INTO %s (tag, description, unique_ref, total_amount, currency, status, type, meta)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		ON CONFLICT (unique_ref) DO UPDATE SET id=%s.id
 		RETURNING *`
 
 	// Execute query and scan the returned row into the struct
-	query = fmt.Sprintf(query, payment.Table())
+	query = fmt.Sprintf(query, payment.Table(), payment.Table())
 	if err := config.DB.QueryRowx(query, params.Tag, params.Description, params.Ref, params.TotalAmount, params.Currency, INITIATED, params.Type, metaJSON).
 		StructScan(payment); err != nil {
 		return nil, fmt.Errorf("failed to create payment: %w", err)
