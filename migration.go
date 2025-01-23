@@ -97,6 +97,35 @@ var migrations = []Migration{
 			applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		);`, "{prefix}"),
 	},
+	// Migration 6: Create a trigger to update the payments as a respective transaction is created.
+	{
+		Version: "2025-01-22-create-payment-transaction-sync",
+		Query: fmt.Sprintf(`
+			CREATE TYPE %stransaction_status AS ENUM ('VERIFIED', 'CANCELED');
+			ALTER TABLE %spayments
+				ADD COLUMN transaction_status %stransaction_status;
+				
+			CREATE OR REPLACE FUNCTION update_%spayments_on_tx() RETURNS trigger
+				LANGUAGE plpgsql
+				AS $$
+			DECLARE
+				tx_status %stransaction_status;
+			BEGIN
+				tx_status := CASE
+					WHEN NEW.canceled_at IS NOT NULL THEN 'CANCELED'::%stransaction_status
+					WHEN NEW.verified_at IS NOT NULL THEN 'VERIFIED'::%stransaction_status
+					ELSE NULL
+				END;
+				UPDATE %spayments SET transaction_status=tx_status WHERE id=NEW.payment_id;
+				RETURN NEW;
+			END;
+			$$;
+
+			CREATE OR REPLACE TRIGGER update_%spayments_on_tx AFTER INSERT OR UPDATE ON %stransactions FOR EACH ROW EXECUTE FUNCTION update_gopay_payments_on_tx();
+
+			UPDATE %stransactions SET id=id;
+		`, "{prefix}", "{prefix}", "{prefix}", "{prefix}", "{prefix}", "{prefix}", "{prefix}", "{prefix}", "{prefix}", "{prefix}", "{prefix}"),
+	},
 }
 
 // runMigrate applies any pending migrations for the payment package.
