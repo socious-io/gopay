@@ -11,20 +11,21 @@ import (
 
 // Payment represents a payment transaction and its associated details.
 type Payment struct {
-	ID                 uuid.UUID      `db:"id" json:"id"`
-	Tag                string         `db:"tag" json:"tag"`
-	Description        string         `db:"description" json:"description"`
-	UniqueRef          string         `db:"unique_ref" json:"unique_ref"`
-	TotalAmount        float64        `db:"total_amount" json:"total_amount"`
-	Currency           Currency       `db:"currency" json:"currency"`
-	FiatServiceName    *string        `db:"fiat_service_name" json:"fiat_service_name"`
-	CryptoCurrency     *string        `db:"crypto_currency" json:"crypto_currency"`
-	CryptoCurrencyRate *float64       `db:"crypto_currency_rate" json:"crypto_currency_rate"`
-	Meta               types.JSONText `db:"meta" json:"meta,omitempty"`
-	Status             PaymentStatus  `db:"status" json:"status"`
-	Type               PaymentType    `db:"type" json:"type"`
-	CreatedAt          time.Time      `db:"created_at" json:"created_at"`
-	UpdatedAt          time.Time      `db:"updated_at" json:"updated_at"`
+	ID                 uuid.UUID          `db:"id" json:"id"`
+	Tag                string             `db:"tag" json:"tag"`
+	Description        string             `db:"description" json:"description"`
+	UniqueRef          string             `db:"unique_ref" json:"unique_ref"`
+	TotalAmount        float64            `db:"total_amount" json:"total_amount"`
+	Currency           Currency           `db:"currency" json:"currency"`
+	FiatServiceName    *string            `db:"fiat_service_name" json:"fiat_service_name"`
+	CryptoCurrency     *string            `db:"crypto_currency" json:"crypto_currency"`
+	CryptoCurrencyRate *float64           `db:"crypto_currency_rate" json:"crypto_currency_rate"`
+	Meta               types.JSONText     `db:"meta" json:"meta,omitempty"`
+	Status             PaymentStatus      `db:"status" json:"status"`
+	TransactionStatus  *TransactionStatus `db:"transaction_status" json:"transaction_status"`
+	Type               PaymentType        `db:"type" json:"type"`
+	CreatedAt          time.Time          `db:"created_at" json:"created_at"`
+	UpdatedAt          time.Time          `db:"updated_at" json:"updated_at"`
 
 	Identities   []PaymentIdentity `db:"-" json:"identities"`
 	Transactions []Transaction     `db:"-" json:"transactions"`
