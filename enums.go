@@ -17,6 +17,9 @@ type Currency string
 // PaymentStatus represents the current status of a payment.
 type PaymentStatus string
 
+// TransactionStatus represents the current status of a transaction.
+type TransactionStatus string
+
 // PaymentType represents the type of payment (Fiat or Crypto).
 type PaymentType string
 
@@ -64,6 +67,12 @@ const (
 	REFUNDED        PaymentStatus = "REFUNDED"        // Payment has been refunded.
 )
 
+// Constants for transaction status.
+const (
+	CANCELED TransactionStatus = "CANCELED" // Transaction has been canceled.
+	VERIFIED TransactionStatus = "VERIFIED" // Transaction has been verified.
+)
+
 // Constants for fiat services.
 const (
 	STRIPE FiatService = "STRIPE" // Fiat service provider for Stripe.
@@ -105,6 +114,11 @@ func (c *Currency) Scan(value interface{}) error {
 
 // Scan method for the PaymentStatus type. It scans a value and stores it as a PaymentStatus.
 func (c *PaymentStatus) Scan(value interface{}) error {
+	return scanEnum(value, (*string)(c)) // Calls scanEnum to handle the scanning process.
+}
+
+// Scan method for the PaymentStatus type. It scans a value and stores it as a PaymentStatus.
+func (c *TransactionStatus) Scan(value interface{}) error {
 	return scanEnum(value, (*string)(c)) // Calls scanEnum to handle the scanning process.
 }
 
