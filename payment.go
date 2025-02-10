@@ -314,11 +314,11 @@ func New(params PaymentParams) (*Payment, error) {
 	query := `
 		INSERT INTO %s (tag, description, unique_ref, total_amount, currency, status, type, meta)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-		ON CONFLICT (unique_ref) DO UPDATE SET id=%s.id
+		ON CONFLICT (unique_ref) DO UPDATE SET tag=$1 ,description=$2 ,total_amount=$4, currency=$5, status=$6, type=$7, meta=$8
 		RETURNING *`
 
 	// Execute query and scan the returned row into the struct
-	query = fmt.Sprintf(query, payment.Table(), payment.Table())
+	query = fmt.Sprintf(query, payment.Table())
 	if err := config.DB.QueryRowx(query, params.Tag, params.Description, params.Ref, params.TotalAmount, params.Currency, INITIATED, params.Type, metaJSON).
 		StructScan(payment); err != nil {
 		return nil, fmt.Errorf("failed to create payment: %w", err)
