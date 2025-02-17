@@ -142,18 +142,18 @@ func (p *Payment) SetToFiatMode(name string) error {
 }
 
 // UpdateStatus updates the status to the desired one
-func (p *Payment) UpdateStatus(status PaymentStatus) error {
+func (p *Payment) Update() error {
 	// SQL query with RETURNING *
 	query := `
 		UPDATE %s
-		SET status = $1, updated_at = NOW()
-		WHERE id = $2
+		SET status = $1, meta=$2, updated_at = NOW()
+		WHERE id = $3
 		RETURNING *`
 	query = fmt.Sprintf(query, p.Table())
 	// Execute query and scan the updated row back into the Payment struct
-	if err := config.DB.QueryRowx(query, status, p.ID).
+	if err := config.DB.QueryRowx(query, p.Status, p.Meta, p.ID).
 		StructScan(p); err != nil {
-		return fmt.Errorf("failed to set payment status to %s: %w", status, err)
+		return fmt.Errorf("failed to set payment status to %s: %w", p.Status, err)
 	}
 
 	return nil
@@ -220,7 +220,8 @@ func (p *Payment) Deposit() error {
 		return err
 	}
 
-	return p.UpdateStatus(DEPOSITED)
+	p.Status = DEPOSITED
+	return p.Update()
 }
 
 // ConfirmDeposit processes a crypto payment deposit confirmation.
@@ -275,7 +276,9 @@ func (p *Payment) ConfirmDeposit(txID string, meta interface{}) error {
 		return err
 	}
 
-	return p.UpdateStatus(DEPOSITED)
+	p.Status = DEPOSITED
+	p.Meta, _ = json.Marshal(meta)
+	return p.Update()
 }
 
 // Fetch retrieves a payment by ID, including its associated identities and transactions.
