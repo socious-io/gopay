@@ -166,20 +166,51 @@ func (c Chain) getCardanoTXInfo(txHash string, token CryptoToken) (*CryptoTransa
 			ProjectID: c.ApiKey,
 		},
 	)
+
 	ctx := context.Background()
-	tx, err := api.Transaction(ctx, txHash)
-	if err != nil {
-		return nil, err
+	maxRetries := 5               // Maximum number of retries
+	retryDelay := 1 * time.Second // Delay between retries
+
+	var (
+		tx    blockfrost.TransactionContent
+		utxos blockfrost.TransactionUTXOs
+		block blockfrost.Block
+		err   error
+	)
+
+	// Retry loop
+	for retry := 0; retry < maxRetries; retry++ {
+		// Fetch transaction details
+		tx, err = api.Transaction(ctx, txHash)
+		if err != nil {
+			fmt.Printf("Attempt %d: Error fetching transaction: %v\n", retry+1, err)
+			time.Sleep(retryDelay)
+			continue
+		}
+
+		// Fetch transaction UTXOs
+		utxos, err = api.TransactionUTXOs(ctx, txHash)
+		if err != nil {
+			fmt.Printf("Attempt %d: Error fetching transaction UTXOs: %v\n", retry+1, err)
+			time.Sleep(retryDelay)
+			continue
+		}
+
+		// Fetch block details
+		block, err = api.Block(ctx, tx.Block)
+		if err != nil {
+			fmt.Printf("Attempt %d: Error fetching block: %v\n", retry+1, err)
+			time.Sleep(retryDelay)
+			continue
+		}
+
+		// If all data is fetched successfully, break the loop
+		break
 	}
 
-	utxos, err := api.TransactionUTXOs(ctx, txHash)
+	// If all retries fail, return the last error
 	if err != nil {
-		return nil, err
-	}
-
-	block, err := api.Block(ctx, tx.Block)
-	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed after %d retries: %v", maxRetries, err)
 	}
 
 	return &CryptoTransactionInfo{
