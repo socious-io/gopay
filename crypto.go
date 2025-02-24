@@ -187,7 +187,7 @@ func (c Chain) getCardanoTXInfo(txHash string, token CryptoToken) (*CryptoTransa
 		TotalAmount: fromStrTokenValueToNumber(tx.OutputAmount[0].Quantity, fmt.Sprintf("%d", token.Decimals)),
 		Date:        time.Unix(int64(block.Time), 0),
 		From:        utxos.Inputs[0].Address,
-		To:          utxos.Inputs[1].Address,
+		To:          utxos.Outputs[0].Address,
 		Meta:        CardanoTokenTransferResponse{tx, utxos, block},
 		Token:       token,
 		Confirmed:   true,

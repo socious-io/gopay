@@ -37,6 +37,7 @@ func TestGetTXInfo(t *testing.T) {
 		Type:            gopay.EVM,
 		Mode:            "mainnet",
 	}
+
 	txHash := "0xTransactionHash"
 	token := gopay.CryptoToken{
 		Name:     "Ether",
