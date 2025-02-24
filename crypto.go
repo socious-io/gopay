@@ -2,12 +2,15 @@
 package gopay
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/blockfrost/blockfrost-go"
 )
 
 // Chains represents a slice of Chain objects. Each Chain can represent a different blockchain network.
@@ -71,6 +74,12 @@ type EvmTokenTransferResponse struct {
 	Confirmations     string `json:"confirmations"`     // Number of confirmations the transaction has received
 }
 
+type CardanoTokenTransferResponse struct {
+	Info  blockfrost.TransactionContent `json:"info"`
+	Utxos blockfrost.TransactionUTXOs   `json:"utxos"`
+	Block blockfrost.Block              `json:"block"`
+}
+
 // CryptoParams holds parameters used to retrieve transaction information, such as the transaction hash and token address.
 type CryptoParams struct {
 	TxHash       string // The transaction hash (ID) for the blockchain transaction.
@@ -84,7 +93,7 @@ func (c Chain) GetTXInfo(txHash string, token CryptoToken) (*CryptoTransactionIn
 	case EVM:
 		return c.getEvmTXInfo(txHash, token)
 	case CARDANO:
-		return c.getCardanoTXInfo(txHash)
+		return c.getCardanoTXInfo(txHash, token)
 	default:
 		return nil, fmt.Errorf("unknown crypto env")
 	}
@@ -149,9 +158,40 @@ func (c Chain) getEvmTXInfo(txHash string, token CryptoToken) (*CryptoTransactio
 	}, nil
 }
 
-// getCardanoTXInfo is a placeholder function for retrieving Cardano transaction information. Currently not implemented.
-func (Chain) getCardanoTXInfo(_ string) (*CryptoTransactionInfo, error) {
-	return nil, fmt.Errorf("cardano transactions not implemented")
+// getCardanoTXInfo is a function for retrieving Cardano transaction information
+func (c Chain) getCardanoTXInfo(txHash string, token CryptoToken) (*CryptoTransactionInfo, error) {
+	api := blockfrost.NewAPIClient(
+		blockfrost.APIClientOptions{
+			Server:    c.Explorer,
+			ProjectID: c.ApiKey,
+		},
+	)
+	ctx := context.Background()
+	tx, err := api.Transaction(ctx, txHash)
+	if err != nil {
+		return nil, err
+	}
+
+	utxos, err := api.TransactionUTXOs(ctx, txHash)
+	if err != nil {
+		return nil, err
+	}
+
+	block, err := api.Block(ctx, tx.Block)
+	if err != nil {
+		return nil, err
+	}
+
+	return &CryptoTransactionInfo{
+		TxHash:      txHash,
+		TotalAmount: fromStrTokenValueToNumber(tx.OutputAmount[0].Quantity, fmt.Sprintf("%d", token.Decimals)),
+		Date:        time.Unix(int64(block.Time), 0),
+		From:        utxos.Inputs[0].Address,
+		To:          utxos.Inputs[1].Address,
+		Meta:        CardanoTokenTransferResponse{tx, utxos, block},
+		Token:       token,
+		Confirmed:   true,
+	}, nil
 }
 
 // TransactionInfo searches for a specific token and transaction hash, retrieves the appropriate chain, and returns transaction details.
