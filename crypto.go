@@ -106,37 +106,62 @@ func (t CryptoTransactionInfo) ID() string {
 
 // getEvmTXInfo retrieves detailed transaction information from an Ethereum-like blockchain (EVM) using a block explorer API.
 func (c Chain) getEvmTXInfo(txHash string, token CryptoToken) (*CryptoTransactionInfo, error) {
-	url := fmt.Sprintf("%s?module=account&action=tokentx&address=%s&apikey=%s", c.Explorer, c.ContractAddress, c.ApiKey)
-	resp, err := http.Get(url)
-	if err != nil {
-		return nil, fmt.Errorf("error making HTTP request: %v", err)
-	}
-	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected HTTP status: %s", resp.Status)
-	}
-
-	var response struct {
-		Status  string
-		Message string
-		Result  []EvmTokenTransferResponse
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-		return nil, fmt.Errorf("error decoding JSON: %v", err)
-	}
-
-	var evmInfo *EvmTokenTransferResponse
-
-	for _, res := range response.Result {
-		if res.Hash == txHash {
-			evmInfo = &res
+	var (
+		maxRetries = 5               // Maximum number of retries
+		retryDelay = 1 * time.Second // Delay between retries
+		evmInfo    *EvmTokenTransferResponse
+		resp       *http.Response
+		err        error
+		response   struct {
+			Status  string
+			Message string
+			Result  []EvmTokenTransferResponse
 		}
+	)
+
+	for retry := 0; retry < maxRetries; retry++ {
+		url := fmt.Sprintf("%s?module=account&action=tokentx&address=%s&apikey=%s", c.Explorer, c.ContractAddress, c.ApiKey)
+		resp, err = http.Get(url)
+		if err != nil {
+			fmt.Printf("Attempt %d: Error making HTTP request: %v\n", retry+1, err)
+			time.Sleep(retryDelay)
+			continue
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			err = fmt.Errorf("attempt %d: unexpected HTTP status: %s", retry+1, resp.Status)
+			fmt.Printf("Attempt %d: Unexpected HTTP status: %s\n", retry+1, resp.Status)
+			time.Sleep(retryDelay)
+			continue
+		}
+
+		if err = json.NewDecoder(resp.Body).Decode(&response); err != nil {
+			fmt.Printf("Attempt %d: Error decoding JSON: %v\n", retry+1, err)
+			time.Sleep(retryDelay)
+			continue
+		}
+
+		for _, res := range response.Result {
+			if res.Hash == txHash {
+				evmInfo = &res
+			}
+		}
+
+		if evmInfo == nil {
+			fmt.Printf("Attempt %d: transaction %s not found\n", retry+1, txHash)
+			time.Sleep(retryDelay)
+			continue
+		}
+
+		// If all data is fetched successfully, break the loop
+		break
 	}
 
-	if evmInfo == nil {
-		return nil, fmt.Errorf("transaction %s not found", txHash)
+	// If all retries fail, return the last error
+	if err != nil {
+		return nil, fmt.Errorf("failed after %d retries: %v", maxRetries, err)
 	}
 
 	confirms, _ := strconv.Atoi(evmInfo.Confirmations)
