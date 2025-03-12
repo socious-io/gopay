@@ -108,8 +108,8 @@ func (t CryptoTransactionInfo) ID() string {
 func (c Chain) getEvmTXInfo(txHash string, token CryptoToken) (*CryptoTransactionInfo, error) {
 
 	var (
-		maxRetries = 5               // Maximum number of retries
-		retryDelay = 1 * time.Second // Delay between retries
+		maxRetries = 10              // Maximum number of retries
+		retryDelay = 4 * time.Second // Delay between retries
 		evmInfo    *EvmTokenTransferResponse
 		resp       *http.Response
 		err        error
@@ -160,7 +160,7 @@ func (c Chain) getEvmTXInfo(txHash string, token CryptoToken) (*CryptoTransactio
 	}
 
 	// If all retries fail, return the last error
-	if err != nil {
+	if err != nil || evmInfo == nil {
 		return nil, fmt.Errorf("failed after %d retries: %v", maxRetries, err)
 	}
 
@@ -179,7 +179,7 @@ func (c Chain) getEvmTXInfo(txHash string, token CryptoToken) (*CryptoTransactio
 		To:          evmInfo.To,
 		Meta:        evmInfo,
 		Token:       token,
-		Confirmed:   confirms > 10,
+		Confirmed:   confirms >= 10,
 	}, nil
 }
 
