@@ -271,6 +271,10 @@ func (p *Payment) ConfirmDeposit(txID string, meta interface{}) error {
 		return t.Cancel()
 	}
 
+	if info.TotalAmount < t.Amount {
+		return fmt.Errorf("transaction amount mismatch: expected %f but got %f", t.Amount, info.TotalAmount)
+	}
+
 	// Verify the transaction if it's confirmed
 	if err := t.Verify(); err != nil {
 		return err
