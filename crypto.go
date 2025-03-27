@@ -108,8 +108,8 @@ func (t CryptoTransactionInfo) ID() string {
 func (c Chain) getEvmTXInfo(txHash string, token CryptoToken) (*CryptoTransactionInfo, error) {
 
 	var (
-		maxRetries = 10              // Maximum number of retries
-		retryDelay = 4 * time.Second // Delay between retries
+		maxRetries = 20          // Maximum number of retries
+		retryDelay = time.Second // Delay between retries
 		evmInfo    *EvmTokenTransferResponse
 		resp       *http.Response
 		err        error
@@ -193,8 +193,8 @@ func (c Chain) getCardanoTXInfo(txHash string, token CryptoToken) (*CryptoTransa
 	)
 
 	ctx := context.Background()
-	maxRetries := 5               // Maximum number of retries
-	retryDelay := 1 * time.Second // Delay between retries
+	maxRetries := 20          // Maximum number of retries
+	retryDelay := time.Second // Delay between retries
 
 	var (
 		tx    blockfrost.TransactionContent
