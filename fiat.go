@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/stripe/stripe-go/v81"
+	"github.com/stripe/stripe-go/v81/customer"
 	"github.com/stripe/stripe-go/v81/paymentintent"
 	"github.com/stripe/stripe-go/v81/paymentmethod"
 )
@@ -65,6 +66,7 @@ func (fiats Fiats) Pay(params FiatParams) (*FiatTransactionInfo, error) {
 // StripePay handles a payment using the Stripe payment gateway.
 func (f Fiat) StripePay(params FiatParams) (*FiatTransactionInfo, error) {
 	// Set up the Stripe API key for authentication.
+	// @FIXME: it may cause data race
 	stripe.Key = f.ApiKey
 
 	// List payment methods for the customer.
@@ -150,4 +152,47 @@ func stripeAmount(amount float64, currency Currency) int64 {
 		// Default case returns 0 if the currency is unrecognized.
 		return 0
 	}
+}
+
+func (f Fiat) AddCustomer(email string) (*stripe.Customer, error) {
+	// @FIXME: it may cause data race
+	stripe.Key = f.ApiKey
+
+	c, err := customer.New(&stripe.CustomerParams{
+		Email: stripe.String(email),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create customer: %v", err)
+	}
+
+	return c, nil
+}
+
+func (f Fiat) AttachPaymentMethod(customerID string, cardToken string) (*stripe.PaymentMethod, error) {
+	// @FIXME: it may cause data race
+	stripe.Key = f.ApiKey
+
+	pm, err := paymentmethod.New(&stripe.PaymentMethodParams{
+		Type: stripe.String("card"),
+		Card: &stripe.PaymentMethodCardParams{
+			Token: stripe.String(cardToken),
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create payment method: %v", err)
+	}
+	// 3. Attach payment method to customer
+	paymentmethod.Attach(pm.ID, &stripe.PaymentMethodAttachParams{
+		Customer: stripe.String(customerID),
+	})
+
+	_, err = customer.Update(customerID, &stripe.CustomerParams{
+		InvoiceSettings: &stripe.CustomerInvoiceSettingsParams{
+			DefaultPaymentMethod: stripe.String(pm.ID),
+		},
+	})
+	if err != nil {
+		return pm, fmt.Errorf("attached payment method but failed to set as default: %w", err)
+	}
+	return pm, nil
 }
