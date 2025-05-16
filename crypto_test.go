@@ -1,6 +1,8 @@
 package gopay_test
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"testing"
 
@@ -86,4 +88,32 @@ func TestGetTXInfo(t *testing.T) {
 		t.Errorf("Expected To address 0xToAddress, but got %s", result.To)
 	}
 	t.Log("crypto tests successfully done")
+}
+
+func TestCardanoTXInfo(t *testing.T) {
+	// Setup
+	chain := gopay.Chain{
+		Name:            "Cardano",
+		Explorer:        "https://cardano-mainnet.blockfrost.io/api/v0",
+		ContractAddress: "",
+		ApiKey:          "",
+		Type:            gopay.CARDANO,
+		Mode:            "mainnet",
+	}
+
+	txHash := "f1e8498b55c3a9689bafda15243d26514ed0730e4ea775f1655a4f04f84ccf1a"
+	token := gopay.CryptoToken{
+		Name:     "",
+		Symbol:   "",
+		Address:  "",
+		Decimals: 6,
+	}
+	// Call GetTXInfo
+	result, err := chain.GetTXInfo(txHash, token)
+
+	if err != nil {
+		t.Error(err)
+	}
+	b, _ := json.Marshal(result)
+	fmt.Println(string(b), "----------------------")
 }

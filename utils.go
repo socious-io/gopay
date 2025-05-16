@@ -40,3 +40,7 @@ func fromStrTokenValueToNumber(valueStr string, tokenDecimal string) float64 {
 	floatResult, _ := result.Float64()
 	return floatResult
 }
+
+func matchAddress(addr1, addr2 string) bool {
+
+}
