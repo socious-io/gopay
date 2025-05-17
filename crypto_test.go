@@ -1,8 +1,6 @@
 package gopay_test
 
 import (
-	"encoding/json"
-	"fmt"
 	"net/http"
 	"testing"
 
@@ -103,17 +101,16 @@ func TestCardanoTXInfo(t *testing.T) {
 
 	txHash := "f1e8498b55c3a9689bafda15243d26514ed0730e4ea775f1655a4f04f84ccf1a"
 	token := gopay.CryptoToken{
-		Name:     "",
-		Symbol:   "",
-		Address:  "",
+		Name:     "USDM",
+		Symbol:   "USDM",
+		Address:  "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d",
 		Decimals: 6,
 	}
 	// Call GetTXInfo
-	result, err := chain.GetTXInfo(txHash, token)
+	_, err := chain.GetTXInfo(txHash, token)
 
 	if err != nil {
 		t.Error(err)
 	}
-	b, _ := json.Marshal(result)
-	fmt.Println(string(b), "----------------------")
+
 }

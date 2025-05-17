@@ -237,16 +237,17 @@ func (c Chain) getCardanoTXInfo(txHash string, token CryptoToken) (*CryptoTransa
 	if err != nil {
 		return nil, fmt.Errorf("failed after %d retries: %v", maxRetries, err)
 	}
+	var total float64
 
 	for _, am := range utxos.Outputs[0].Amount {
-		if am.Unit == token.Address {
-			token.Decimals = am.Quantity
+		if matchAddress(token.Address, am.Unit) {
+			total = fromStrTokenValueToNumber(am.Quantity, fmt.Sprintf("%d", token.Decimals))
 		}
 	}
 
 	return &CryptoTransactionInfo{
 		TxHash:      txHash,
-		TotalAmount: fromStrTokenValueToNumber(tx.OutputAmount[0].Quantity, fmt.Sprintf("%d", token.Decimals)),
+		TotalAmount: total,
 		Date:        time.Unix(int64(block.Time), 0),
 		From:        utxos.Inputs[0].Address,
 		To:          utxos.Outputs[0].Address,

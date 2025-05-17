@@ -42,5 +42,5 @@ func fromStrTokenValueToNumber(valueStr string, tokenDecimal string) float64 {
 }
 
 func matchAddress(addr1, addr2 string) bool {
-
+	return strings.Contains(strings.ToLower(addr1), strings.ToLower(addr2))
 }
