@@ -92,6 +92,10 @@ func (f Fiat) StripePay(params FiatParams) (*FiatTransactionInfo, error) {
 		Customer:      stripe.String(params.Customer),
 		PaymentMethod: stripe.String(method.ID),
 		Description:   stripe.String(params.Description),
+		AutomaticPaymentMethods: &stripe.PaymentIntentAutomaticPaymentMethodsParams{
+			Enabled:        stripe.Bool(true),
+			AllowRedirects: stripe.String("never"), // Block redirect-based methods
+		},
 	}
 
 	// If there is a transfer, add related data to the payment intent.
@@ -119,6 +123,14 @@ func (f Fiat) StripePay(params FiatParams) (*FiatTransactionInfo, error) {
 		Date:        time.Now(),
 		Currency:    string(result.Currency),
 		Meta:        result,
+	}
+
+	if result.Status == stripe.PaymentIntentStatusRequiresConfirmation {
+		confirmed, err := paymentintent.Confirm(result.ID, nil)
+		if err != nil {
+			return info, err
+		}
+		result = confirmed
 	}
 
 	if result.Status != stripe.PaymentIntentStatusSucceeded {
