@@ -211,6 +211,40 @@ func (f Fiat) AttachPaymentMethod(customerID string, cardToken string) (*stripe.
 	return pm, nil
 }
 
+func (f Fiat) FetchCards(customerID string) ([]*stripe.PaymentMethod, error) {
+	// @FIXME: it may cause data race
+	stripe.Key = f.ApiKey
+	params := &stripe.PaymentMethodListParams{
+		Customer: stripe.String(customerID),
+		Type:     stripe.String("card"),
+	}
+
+	iter := paymentmethod.List(params)
+	var cards []*stripe.PaymentMethod
+
+	for iter.Next() {
+		pm := iter.PaymentMethod()
+		cards = append(cards, pm)
+	}
+
+	if err := iter.Err(); err != nil {
+		return nil, err
+	}
+
+	return cards, nil
+}
+
+func (f Fiat) DeleteCard(paymentMethodID string) error {
+	// @FIXME: it may cause data race
+	stripe.Key = f.ApiKey
+
+	if _, err := paymentmethod.Detach(paymentMethodID, nil); err != nil {
+		return fmt.Errorf("failed to detach payment method: %v", err)
+	}
+
+	return nil
+}
+
 func (f Fiat) CreateAccount(country string) (*stripe.Account, error) {
 	// @FIXME: it may cause data race
 	stripe.Key = f.ApiKey
