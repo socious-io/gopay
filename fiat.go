@@ -293,3 +293,16 @@ func (f Fiat) CreateAccountLink(account *stripe.Account, redirectURL string) (*s
 
 	return accountLink, nil
 }
+
+func (f Fiat) FetchAccount(accountID string) (*stripe.Account, error) {
+	// @FIXME: it may cause data race
+	stripe.Key = f.ApiKey
+
+	acc, err := account.GetByID(accountID, nil)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create account link: %v", err)
+	}
+
+	return acc, nil
+}
