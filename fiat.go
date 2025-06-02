@@ -29,12 +29,14 @@ type Transfer struct {
 
 // FiatTransactionInfo holds information about a fiat transaction.
 type FiatTransactionInfo struct {
-	TXID        string      `json:"tx_id"`        // Transaction ID from payment gateway.
-	TotalAmount int64       `json:"total_amount"` // Total transaction amount in minor units (e.g., cents).
-	Currency    string      `json:"currency"`     // The currency used for the transaction.
-	Meta        interface{} `json:"meta"`         // Metadata or additional information about the transaction.
-	Date        time.Time   `json:"date"`         // The date the transaction was created.
-	Confirmed   bool        `json:"confirmed"`    // Whether the payment has been confirmed.
+	TXID           string      `json:"tx_id"`        // Transaction ID from payment gateway.
+	TotalAmount    int64       `json:"total_amount"` // Total transaction amount in minor units (e.g., cents).
+	Currency       string      `json:"currency"`     // The currency used for the transaction.
+	Meta           interface{} `json:"meta"`         // Metadata or additional information about the transaction.
+	Date           time.Time   `json:"date"`         // The date the transaction was created.
+	Confirmed      bool        `json:"confirmed"`    // Whether the payment has been confirmed.
+	RequiresAction bool        `json:"requires_action"`
+	ClientSecret   string      `json:"client_secret"`
 }
 
 // FiatParams contains parameters necessary for initiating a fiat transaction.
@@ -92,10 +94,18 @@ func (f Fiat) StripePay(params FiatParams) (*FiatTransactionInfo, error) {
 		Customer:      stripe.String(params.Customer),
 		PaymentMethod: stripe.String(method.ID),
 		Description:   stripe.String(params.Description),
+		Confirm:       stripe.Bool(true),
+		CaptureMethod: stripe.String(string(stripe.PaymentIntentCaptureMethodAutomatic)),
 		AutomaticPaymentMethods: &stripe.PaymentIntentAutomaticPaymentMethodsParams{
 			Enabled:        stripe.Bool(true),
 			AllowRedirects: stripe.String("never"), // Block redirect-based methods
 		},
+		PaymentMethodOptions: &stripe.PaymentIntentPaymentMethodOptionsParams{
+			Card: &stripe.PaymentIntentPaymentMethodOptionsCardParams{
+				RequestThreeDSecure: stripe.String("automatic"), // Let Stripe decide when 3DS is needed
+			},
+		},
+		SetupFutureUsage: stripe.String(string(stripe.PaymentIntentSetupFutureUsageOffSession)),
 	}
 
 	// If there is a transfer, add related data to the payment intent.
@@ -123,6 +133,12 @@ func (f Fiat) StripePay(params FiatParams) (*FiatTransactionInfo, error) {
 		Date:        time.Now(),
 		Currency:    string(result.Currency),
 		Meta:        result,
+	}
+
+	if result.Status == stripe.PaymentIntentStatusRequiresAction {
+		info.RequiresAction = true
+		info.ClientSecret = result.ClientSecret
+		return info, nil
 	}
 
 	if result.Status == stripe.PaymentIntentStatusRequiresConfirmation {
