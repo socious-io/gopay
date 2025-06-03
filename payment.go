@@ -23,6 +23,7 @@ type Payment struct {
 	Meta               types.JSONText     `db:"meta" json:"meta,omitempty"`
 	Status             PaymentStatus      `db:"status" json:"status"`
 	TransactionStatus  *TransactionStatus `db:"transaction_status" json:"transaction_status"`
+	ClientSecret       *string            `db:"client_secret" json:"client_secret"`
 	Type               PaymentType        `db:"type" json:"type"`
 	CreatedAt          time.Time          `db:"created_at" json:"created_at"`
 	UpdatedAt          time.Time          `db:"updated_at" json:"updated_at"`
@@ -213,9 +214,22 @@ func (p *Payment) Deposit() error {
 
 	// Store info in the transaction and verify if successful
 	t.Meta, _ = json.Marshal(map[string]interface{}{"info": info})
-	if !info.Confirmed {
+	if !info.Confirmed && !info.RequiresAction {
 		return t.Cancel()
 	}
+
+	if info.RequiresAction {
+		t.Status = ACTION_REQUIRED
+		if err := t.ActionRequired(); err != nil {
+			return err
+		}
+		p.TransactionStatus = &t.Status
+		p.ClientSecret = &info.ClientSecret
+		p.Status = ON_HOLD
+
+		return p.Update()
+	}
+
 	if err := t.Verify(); err != nil {
 		return err
 	}

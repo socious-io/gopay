@@ -69,8 +69,9 @@ const (
 
 // Constants for transaction status.
 const (
-	CANCELED TransactionStatus = "CANCELED" // Transaction has been canceled.
-	VERIFIED TransactionStatus = "VERIFIED" // Transaction has been verified.
+	CANCELED        TransactionStatus = "CANCELED" // Transaction has been canceled.
+	VERIFIED        TransactionStatus = "VERIFIED" // Transaction has been verified.
+	ACTION_REQUIRED TransactionStatus = "ACTION_REQUIRED"
 )
 
 // Constants for fiat services.

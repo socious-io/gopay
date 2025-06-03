@@ -11,19 +11,20 @@ import (
 // Transaction represents a financial transaction related to a payment.
 // It includes details about the transaction ID, amount, fees, discounts, and the associated payment and identity.
 type Transaction struct {
-	ID         uuid.UUID       `db:"id" json:"id"`                   // Unique transaction identifier
-	PaymentID  uuid.UUID       `db:"payment_id" json:"-"`            // Associated payment ID (hidden in JSON)
-	IdentityID uuid.UUID       `db:"identity_id" json:"identity_id"` // Associated identity ID
-	TXID       string          `db:"tx_id" json:"tx_id"`             // Transaction ID (e.g., blockchain TX ID)
-	Tag        string          `db:"tag" json:"tag"`                 // Tag associated with the transaction
-	Amount     float64         `db:"amount" json:"amount"`           // Transaction amount
-	Fee        float64         `db:"fee" json:"fee"`                 // Fee applied to the transaction
-	Discount   float64         `db:"discount" json:"discount"`       // Discount applied to the transaction
-	Type       TransactionType `db:"type" json:"type"`               // Type of the transaction (e.g., deposit, withdrawal)
-	Meta       types.JSONText  `db:"meta" json:"meta"`               // Metadata associated with the transaction
-	CanceledAt *time.Time      `db:"canceled_at" json:"canceled_at"` // Cancellation timestamp, if applicable
-	VerfiedAt  *time.Time      `db:"verified_at" json:"verified_at"` // Verification timestamp
-	CreatedAt  time.Time       `db:"created_at" json:"created_at"`   // Transaction creation timestamp
+	ID         uuid.UUID         `db:"id" json:"id"`                   // Unique transaction identifier
+	PaymentID  uuid.UUID         `db:"payment_id" json:"-"`            // Associated payment ID (hidden in JSON)
+	IdentityID uuid.UUID         `db:"identity_id" json:"identity_id"` // Associated identity ID
+	TXID       string            `db:"tx_id" json:"tx_id"`             // Transaction ID (e.g., blockchain TX ID)
+	Tag        string            `db:"tag" json:"tag"`                 // Tag associated with the transaction
+	Amount     float64           `db:"amount" json:"amount"`           // Transaction amount
+	Fee        float64           `db:"fee" json:"fee"`                 // Fee applied to the transaction
+	Discount   float64           `db:"discount" json:"discount"`       // Discount applied to the transaction
+	Status     TransactionStatus `db:"status" json:"status"`
+	Type       TransactionType   `db:"type" json:"type"`               // Type of the transaction (e.g., deposit, withdrawal)
+	Meta       types.JSONText    `db:"meta" json:"meta"`               // Metadata associated with the transaction
+	CanceledAt *time.Time        `db:"canceled_at" json:"canceled_at"` // Cancellation timestamp, if applicable
+	VerfiedAt  *time.Time        `db:"verified_at" json:"verified_at"` // Verification timestamp
+	CreatedAt  time.Time         `db:"created_at" json:"created_at"`   // Transaction creation timestamp
 }
 
 // Table returns the table name for the Transaction struct, including a prefix if defined in config.
@@ -72,4 +73,13 @@ func (t *Transaction) Cancel() error {
 
 	// Execute the update query and scan the result back into the struct
 	return config.DB.QueryRowx(query, t.ID, t.Meta).StructScan(t)
+}
+
+func (t *Transaction) ActionRequired() error {
+	// SQL query to update a transaction as verified
+	query := `UPDATE %s SET tx_id=$2, meta=$3, status='ACTION_REQUIRED' WHERE id=$1 RETURNING *`
+	query = fmt.Sprintf(query, t.Table())
+
+	// Execute the update query and scan the result back into the struct
+	return config.DB.QueryRowx(query, t.ID, t.TXID, t.Meta).StructScan(t)
 }

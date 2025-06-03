@@ -126,6 +126,13 @@ var migrations = []Migration{
 			UPDATE %stransactions SET id=id;
 		`, "{prefix}", "{prefix}", "{prefix}", "{prefix}", "{prefix}", "{prefix}", "{prefix}", "{prefix}", "{prefix}", "{prefix}", "{prefix}"),
 	},
+	{
+		Version: "2025-06-02-fiat_3d_secure",
+		Query: fmt.Sprintf(`
+			ALTER TABLE %spayments ADD COLUMN client_secret varchar(120);
+			ALTER TYPE %stransaction_status ADD VALUE 'ACTION_REQUIRED';
+		`, "{prefix}", "{prefix}"),
+	},
 }
 
 // runMigrate applies any pending migrations for the payment package.
