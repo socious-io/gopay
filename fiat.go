@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/stripe/stripe-go/v81"
+	"github.com/stripe/stripe-go/v81/account"
+	"github.com/stripe/stripe-go/v81/accountlink"
 	"github.com/stripe/stripe-go/v81/customer"
 	"github.com/stripe/stripe-go/v81/paymentintent"
 	"github.com/stripe/stripe-go/v81/paymentmethod"
@@ -257,4 +259,66 @@ func (f Fiat) DeleteCard(paymentMethodID string) error {
 	}
 
 	return nil
+}
+
+func (f Fiat) CreateAccount(country string) (*stripe.Account, error) {
+	// @FIXME: it may cause data race
+	stripe.Key = f.ApiKey
+
+	acc, err := account.New(&stripe.AccountParams{
+		Type:    stripe.String(string(stripe.AccountTypeExpress)),
+		Country: stripe.String(country),
+		Capabilities: &stripe.AccountCapabilitiesParams{
+			CardPayments: &stripe.AccountCapabilitiesCardPaymentsParams{
+				Requested: stripe.Bool(true),
+			},
+			Transfers: &stripe.AccountCapabilitiesTransfersParams{
+				Requested: stripe.Bool(true),
+			},
+		},
+		Settings: &stripe.AccountSettingsParams{
+			Payouts: &stripe.AccountSettingsPayoutsParams{
+				Schedule: &stripe.AccountSettingsPayoutsScheduleParams{
+					Interval: stripe.String(string(stripe.AccountSettingsPayoutsScheduleIntervalManual)),
+				},
+			},
+		},
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create account: %v", err)
+	}
+
+	return acc, nil
+}
+
+func (f Fiat) CreateAccountLink(account *stripe.Account, redirectURL string) (*stripe.AccountLink, error) {
+	// @FIXME: it may cause data race
+	stripe.Key = f.ApiKey
+
+	accountLink, err := accountlink.New(&stripe.AccountLinkParams{
+		Account:    stripe.String(account.ID),
+		RefreshURL: stripe.String(redirectURL),
+		ReturnURL:  stripe.String(redirectURL),
+		Type:       stripe.String(string(stripe.AccountLinkTypeAccountOnboarding)),
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create account link: %v", err)
+	}
+
+	return accountLink, nil
+}
+
+func (f Fiat) FetchAccount(accountID string) (*stripe.Account, error) {
+	// @FIXME: it may cause data race
+	stripe.Key = f.ApiKey
+
+	acc, err := account.GetByID(accountID, nil)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create account link: %v", err)
+	}
+
+	return acc, nil
 }
