@@ -133,6 +133,13 @@ var migrations = []Migration{
 			ALTER TYPE %stransaction_status ADD VALUE 'ACTION_REQUIRED';
 		`, "{prefix}", "{prefix}"),
 	},
+	{
+		Version: "2025-06-25-transaction_status",
+		Query: fmt.Sprintf(`
+			ALTER TYPE %stransaction_status ADD VALUE 'PENDING'
+			ALTER TABLE %stransactions ADD COLUMN status %stransaction_status DEFAULT 'PENDING';
+		`, "{prefix}", "{prefix}", "{prefix}"),
+	},
 }
 
 // runMigrate applies any pending migrations for the payment package.
