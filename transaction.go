@@ -19,7 +19,7 @@ type Transaction struct {
 	Amount     float64         `db:"amount" json:"amount"`           // Transaction amount
 	Fee        float64         `db:"fee" json:"fee"`                 // Fee applied to the transaction
 	Discount   float64         `db:"discount" json:"discount"`       // Discount applied to the transaction
-	Status     string          `db:"status" json:"status"`
+	Status     *string         `db:"status" json:"status"`
 	Type       TransactionType `db:"type" json:"type"`               // Type of the transaction (e.g., deposit, withdrawal)
 	Meta       types.JSONText  `db:"meta" json:"meta"`               // Metadata associated with the transaction
 	CanceledAt *time.Time      `db:"canceled_at" json:"canceled_at"` // Cancellation timestamp, if applicable
