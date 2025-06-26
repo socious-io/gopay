@@ -2,6 +2,7 @@ package gopay
 
 import (
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/stripe/stripe-go/v81"
@@ -127,7 +128,7 @@ func (f Fiat) StripePay(params FiatParams) (*FiatTransactionInfo, error) {
 	if err != nil {
 		return nil, err // Return any error encountered while creating the payment intent.
 	}
-
+	log.Printf("payment intent: %v", result)
 	// Create transaction info using the result from Stripe.
 	info := &FiatTransactionInfo{
 		TXID:        result.ID,
