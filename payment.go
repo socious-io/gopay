@@ -220,9 +220,9 @@ func (p *Payment) Deposit() error {
 
 	if info.RequiresAction {
 		t.Status = ACTION_REQUIRED
-		if err := t.ActionRequired(); err != nil {
+		/* if err := t.ActionRequired(); err != nil {
 			return err
-		}
+		} */
 		p.TransactionStatus = &t.Status
 		p.ClientSecret = &info.ClientSecret
 		p.Status = ON_HOLD
