@@ -137,7 +137,7 @@ var migrations = []Migration{
 		Version: "2025-06-25-transaction_status",
 		Query: fmt.Sprintf(`
 			ALTER TYPE %stransaction_status ADD VALUE 'PENDING';
-			ALTER TABLE %stransactions ADD COLUMN status %stransaction_status DEFAULT 'PENDING';
+			ALTER TABLE %stransactions ADD COLUMN status %stransaction_status;
 		`, "{prefix}", "{prefix}", "{prefix}"),
 	},
 }
