@@ -147,12 +147,12 @@ func (p *Payment) Update() error {
 	// SQL query with RETURNING *
 	query := `
 		UPDATE %s
-		SET status = $1, meta=$2, updated_at = NOW()
-		WHERE id = $3
+		SET status = $1, meta=$2, transaction_status=COALESCE($3, transaction_status), client_secret = $4, updated_at = NOW()
+		WHERE id = $5
 		RETURNING *`
 	query = fmt.Sprintf(query, p.Table())
 	// Execute query and scan the updated row back into the Payment struct
-	if err := config.DB.QueryRowx(query, p.Status, p.Meta, p.ID).
+	if err := config.DB.QueryRowx(query, p.Status, p.Meta, p.TransactionStatus, p.ClientSecret, p.ID).
 		StructScan(p); err != nil {
 		return fmt.Errorf("failed to set payment status to %s: %w", p.Status, err)
 	}
