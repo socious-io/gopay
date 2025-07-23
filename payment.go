@@ -239,6 +239,50 @@ func (p *Payment) Deposit() error {
 	return p.Update()
 }
 
+func (p *Payment) ConfirmPayment(paymentIntentID string) error {
+	// Only fiat payments can call this
+	if p.Type != FIAT {
+		return fmt.Errorf("only fiat payments can call this")
+	}
+
+	// Only fiat payments can call this
+	if p.Status != ON_HOLD || p.TransactionStatus == nil || *p.TransactionStatus != ACTION_REQUIRED {
+		return fmt.Errorf("only on-hold payments can be confirmed")
+	}
+
+	//Fetch last transaction
+	if len(p.Transactions) < 1 {
+		return fmt.Errorf("this payment has no transaction available")
+	}
+	t := p.Transactions[len(p.Transactions)-1]
+
+	// Perform the fiat payment service
+	info, err := config.Fiats.ConfirmPayment(FiatPaymentConfirmParams{
+		ServiceName:     *p.FiatServiceName,
+		PaymentIntentID: paymentIntentID,
+	})
+	if err != nil {
+		t.Meta, _ = json.Marshal(map[string]interface{}{"info": info, "error": err.Error()})
+		t.Cancel()
+		return err
+	}
+
+	// Store info in the transaction and verify if successful
+	t.Meta, _ = json.Marshal(map[string]interface{}{"info": info})
+	if !info.IsConfirmed {
+		return fmt.Errorf("payment with intent ID of %s is not confirmed yet", paymentIntentID)
+	}
+
+	if err := t.Verify(); err != nil {
+		return err
+	}
+
+	transactionStatus := VERIFIED
+	p.TransactionStatus = &transactionStatus
+	p.Status = DEPOSITED
+	return p.Update()
+}
+
 // ConfirmDeposit processes a crypto payment deposit confirmation.
 // It checks if the payment type is CRYPTO, creates a corresponding transaction,
 // retrieves the transaction info from the blockchain, and verifies the deposit.
@@ -315,6 +359,27 @@ func Fetch(id uuid.UUID) (*Payment, error) {
 
 	// Fetch transactions associated with the payment
 	if err := config.DB.Select(&p.Transactions, fmt.Sprintf(`SELECT * FROM %s WHERE payment_id=$1`, Transaction{}.Table()), id); err != nil {
+		return nil, err
+	}
+
+	return p, nil
+}
+
+// Fetch retrieves a payment by Unique Reference, including its associated identities and transactions.
+func FetchByUniqueRef(uniqueRef string) (*Payment, error) {
+	p := new(Payment)
+	// Fetch the payment record from the database
+	if err := config.DB.Get(p, fmt.Sprintf(`SELECT * FROM %s WHERE unique_ref=$1`, p.Table()), uniqueRef); err != nil {
+		return nil, err
+	}
+
+	// Fetch identities associated with the payment
+	if err := config.DB.Select(&p.Identities, fmt.Sprintf(`SELECT * FROM %s WHERE payment_id=$1`, PaymentIdentity{}.Table()), p.ID); err != nil {
+		return nil, err
+	}
+
+	// Fetch transactions associated with the payment
+	if err := config.DB.Select(&p.Transactions, fmt.Sprintf(`SELECT * FROM %s WHERE payment_id=$1`, Transaction{}.Table()), p.ID); err != nil {
 		return nil, err
 	}
 

@@ -52,6 +52,17 @@ type FiatParams struct {
 	Transfer    *Transfer // Information about a transfer (optional).
 }
 
+// FiatPaymentConfirmParams contains parameters necessary for confirming a fiat transaction.
+type FiatPaymentConfirmParams struct {
+	ServiceName     string // The name of the service provider (e.g., "STRIPE").
+	PaymentIntentID string
+}
+
+type FiatPaymentConfirmInfo struct {
+	PaymentIntent *stripe.PaymentIntent
+	IsConfirmed   bool
+}
+
 // Pay attempts to pay the specified service using the provided parameters.
 func (fiats Fiats) Pay(params FiatParams) (*FiatTransactionInfo, error) {
 	for _, f := range fiats {
@@ -63,6 +74,22 @@ func (fiats Fiats) Pay(params FiatParams) (*FiatTransactionInfo, error) {
 		default:
 			// Default to Stripe if no specific service is added.
 			return f.StripePay(params)
+		}
+	}
+	return nil, fmt.Errorf("service %s could not found", params.ServiceName)
+}
+
+// Pay attempts to pay the specified service using the provided parameters.
+func (fiats Fiats) ConfirmPayment(params FiatPaymentConfirmParams) (*FiatPaymentConfirmInfo, error) {
+	for _, f := range fiats {
+		if params.ServiceName != f.Name {
+			continue // Skip the service if it does not match the provided name.
+		}
+		switch f.Service {
+		// TODO: add new confirm services here.
+		default:
+			// Default to Stripe if no specific service is added.
+			return f.StripeConfirmPayment(params)
 		}
 	}
 	return nil, fmt.Errorf("service %s could not found", params.ServiceName)
@@ -168,6 +195,28 @@ func (f Fiat) StripePay(params FiatParams) (*FiatTransactionInfo, error) {
 	// ); err != nil {
 	// 	return info, err // Return the transaction info and any errors during confirmation.
 	// }
+}
+
+func (f Fiat) StripeConfirmPayment(params FiatPaymentConfirmParams) (*FiatPaymentConfirmInfo, error) {
+	// Set up the Stripe API key for authentication.
+	// @FIXME: it may cause data race
+	stripe.Key = f.ApiKey
+
+	intent, err := paymentintent.Get(params.PaymentIntentID, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve payment intent: %v", err)
+	}
+
+	info := &FiatPaymentConfirmInfo{
+		PaymentIntent: intent,
+		IsConfirmed:   false,
+	}
+
+	if intent.Status == stripe.PaymentIntentStatusSucceeded {
+		info.IsConfirmed = true
+	}
+
+	return info, nil
 }
 
 // stripeAmount converts a floating point amount to the appropriate integer amount for the selected currency.
