@@ -59,8 +59,8 @@ type FiatPaymentConfirmParams struct {
 }
 
 type FiatPaymentConfirmInfo struct {
-	PaymentIntent *stripe.PaymentIntent
-	IsConfirmed   bool
+	PaymentIntent *stripe.PaymentIntent `json:"payment_intent"`
+	IsConfirmed   bool                  `json:"is_confirmed"`
 }
 
 // Pay attempts to pay the specified service using the provided parameters.
